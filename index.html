@@ -1,79 +1,176 @@
 <!DOCTYPE html>
-<html>
+<html lang="uz">
 <head>
-  <meta charset="utf-8" />
-  <title>Map</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lokatsiya tanlash</title>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    body { margin:0; }
-    #map { width:100%; height:100vh; }
-    button {
-      position:absolute;
-      bottom:20px;
-      left:50%;
-      transform:translateX(-50%);
-      padding:12px 20px;
-      font-size:16px;
-      border:none;
-      border-radius:10px;
-      background:#0088cc;
-      color:white;
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+    }
+
+    #topbar {
+      padding: 12px;
+      background: white;
+      border-bottom: 1px solid #ddd;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #map {
+      width: 100%;
+      height: calc(100vh - 130px);
+    }
+
+    #panel {
+      height: 130px;
+      background: white;
+      border-top: 1px solid #ddd;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+
+    #coords {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: #333;
+      word-break: break-word;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #2AABEE;
+      color: white;
+      font-weight: bold;
+    }
+
+    .btn:disabled {
+      background: #9ecfe8;
+      cursor: not-allowed;
+    }
+
+    #hint {
+      font-size: 13px;
+      color: #666;
+      margin-top: 8px;
+      text-align: center;
     }
   </style>
 </head>
-
 <body>
+  <div id="topbar">📍 Lokatsiyani tanlang</div>
+  <div id="map"></div>
 
-<div id="map"></div>
-<button onclick="send()">Tanlash</button>
+  <div id="panel">
+    <div id="coords">Joy aniqlanmoqda...</div>
+    <button id="confirmBtn" class="btn" disabled>Tanlash</button>
+    <div id="hint">Xaritani suring yoki markerni boshqa joyga olib boring</div>
+  </div>
 
-<script>
-let tg = window.Telegram.WebApp;
-tg.expand();
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
 
-let urlParams = new URLSearchParams(window.location.search);
-let type = urlParams.get("type");
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("type") || "from"; // from yoki to
 
-let selectedLat = null;
-let selectedLon = null;
+    const defaultLat = 41.3111;   // Tashkent default
+    const defaultLon = 69.2797;
 
-let map = L.map('map').setView([41.3111, 69.2797], 13);
+    let selectedLat = defaultLat;
+    let selectedLon = defaultLon;
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: 'Map'
-}).addTo(map);
+    const coordsDiv = document.getElementById("coords");
+    const confirmBtn = document.getElementById("confirmBtn");
 
-let marker;
+    const map = L.map("map").setView([defaultLat, defaultLon], 13);
 
-map.on('click', function(e) {
-    selectedLat = e.latlng.lat;
-    selectedLon = e.latlng.lng;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
 
-    if (marker) map.removeLayer(marker);
+    const marker = L.marker([defaultLat, defaultLon], {
+      draggable: true
+    }).addTo(map);
 
-    marker = L.marker([selectedLat, selectedLon]).addTo(map);
-});
-
-function send() {
-    if (!selectedLat) {
-        alert("Joy tanlang!");
-        return;
+    function updateCoords(lat, lon, label = "Tanlangan joy") {
+      selectedLat = lat;
+      selectedLon = lon;
+      coordsDiv.innerHTML = `<b>${label}:</b> ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      confirmBtn.disabled = false;
     }
 
-    tg.sendData(JSON.stringify({
+    marker.on("dragend", function (e) {
+      const pos = marker.getLatLng();
+      updateCoords(pos.lat, pos.lng);
+      map.panTo(pos);
+    });
+
+    map.on("click", function (e) {
+      marker.setLatLng(e.latlng);
+      updateCoords(e.latlng.lat, e.latlng.lng);
+    });
+
+    function loadCurrentLocation() {
+      if (!navigator.geolocation) {
+        coordsDiv.innerHTML = "Geolokatsiya bu qurilmada ishlamaydi.";
+        updateCoords(defaultLat, defaultLon, "Standart joy");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+
+          map.setView([lat, lon], 16);
+          marker.setLatLng([lat, lon]);
+
+          updateCoords(lat, lon, "Sizning hozirgi joyingiz");
+        },
+        function (error) {
+          console.log("Geolocation error:", error);
+          coordsDiv.innerHTML = "Hozirgi joy olinmadi. Xaritada qo‘lda tanlang.";
+          updateCoords(defaultLat, defaultLon, "Standart joy");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    confirmBtn.addEventListener("click", function () {
+      tg.sendData(JSON.stringify({
+        type: type,
         lat: selectedLat,
-        lon: selectedLon,
-        type: type
-    }));
+        lon: selectedLon
+      }));
+      tg.close();
+    });
 
-    tg.close();
-}
-</script>
-
+    loadCurrentLocation();
+  </script>
 </body>
 </html>
