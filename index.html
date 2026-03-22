@@ -335,10 +335,27 @@
         ${addr.city || ""}
         ${addr.town || ""}
         ${addr.village || ""}
+        ${addr.suburb || ""}
         ${displayName || ""}
       `.toLowerCase();
 
-      if (fullText.includes("toshkent")) return "Toshkent";
+      const cityDistricts = [
+        "bektemir", "chilonzor", "mirobod", "mirzo ulug", "olmazor",
+        "sergeli", "shayxontohur", "uchtepa", "yakkasaroy", "yunusobod",
+        "yashnobod", "yangihayot"
+      ];
+
+      const regionDistricts = [
+        "bekobod", "bo‘ka", "buka", "chinoz", "qibray", "ohangaron",
+        "oqqo‘rg‘on", "oqqorgon", "parkent", "piskent", "quyichirchiq",
+        "o‘rtachirchiq", "urtachirchiq", "yuqorichirchiq", "zangiota",
+        "toshkent tumani", "angren", "olmaliq", "almalyk", "chirchiq",
+        "nurafshon", "yangiyo‘l", "yangiyol"
+      ];
+
+      if (cityDistricts.some(d => fullText.includes(d))) return "Toshkent shahri";
+      if (regionDistricts.some(d => fullText.includes(d))) return "Toshkent viloyati";
+
       if (fullText.includes("samarkand") || fullText.includes("samarqand")) return "Samarqand";
       if (fullText.includes("bukhara") || fullText.includes("buxoro")) return "Buxoro";
       if (fullText.includes("andijan") || fullText.includes("andijon")) return "Andijon";
@@ -356,7 +373,7 @@
         fullText.includes("qoraqalpog")
       ) return "Qoraqalpog‘iston";
 
-      return "Toshkent";
+      return "Toshkent shahri";
     }
 
     function normalizeDistrict(addr) {
@@ -418,7 +435,7 @@
       } catch (e) {
         return {
           address: `${lat}, ${lon}`,
-          region: "Toshkent",
+          region: "Toshkent shahri",
           district: "Noma’lum tuman"
         };
       }
