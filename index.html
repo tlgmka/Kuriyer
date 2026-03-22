@@ -28,7 +28,7 @@
       border-bottom: 1px solid #eaeaea;
       position: sticky;
       top: 0;
-      z-index: 1000;
+      z-index: 3000;
     }
 
     .title {
@@ -42,9 +42,63 @@
       color: #666;
     }
 
-    #map {
+    .map-wrap {
+      position: relative;
       width: 100%;
       height: 55vh;
+      z-index: 1;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .search-box {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 5000;
+    }
+
+    .search-input {
+      width: 100%;
+      border: 1px solid #dcdcdc;
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+    }
+
+    .search-results {
+      margin-top: 8px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+      border: 1px solid #ececec;
+    }
+
+    .search-item {
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.35;
+      border-bottom: 1px solid #f1f1f1;
+      cursor: pointer;
+    }
+
+    .search-item:last-child {
+      border-bottom: none;
+    }
+
+    .search-item:hover {
+      background: #f7f9ff;
     }
 
     .panel {
@@ -54,7 +108,7 @@
       border-top-right-radius: 18px;
       margin-top: -10px;
       position: relative;
-      z-index: 500;
+      z-index: 1000;
       box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
     }
 
@@ -65,13 +119,16 @@
     }
 
     .address-box {
-      min-height: 68px;
+      min-height: 92px;
+      max-height: 160px;
+      overflow-y: auto;
       background: #f7f7f7;
       border-radius: 12px;
       padding: 12px;
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.5;
       margin-bottom: 12px;
+      word-break: break-word;
     }
 
     .btn {
@@ -101,28 +158,51 @@
       text-align: center;
     }
 
-    /* Leaflet zoom tugmasi chiroyliroq */
     .leaflet-control-zoom a {
       width: 34px !important;
       height: 34px !important;
       line-height: 34px !important;
       font-size: 18px !important;
     }
+
+    .loading {
+      color: #666;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+
+    .empty {
+      color: #666;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <div class="topbar">
     <div class="title">📍 Lokatsiyani tanlang</div>
-    <div class="subtitle">Xaritaga bosib aniq joyni belgilang</div>
+    <div class="subtitle">Xaritadan nuqta tanlang yoki manzil qidiring</div>
   </div>
 
-  <div id="map"></div>
+  <div class="map-wrap">
+    <div class="search-box">
+      <input
+        id="searchInput"
+        class="search-input"
+        type="text"
+        placeholder="🔎 Manzil qidiring..."
+        autocomplete="off"
+      />
+      <div id="searchResults" class="search-results"></div>
+    </div>
+    <div id="map"></div>
+  </div>
 
   <div class="panel">
     <div class="label">Tanlangan manzil</div>
     <div id="address" class="address-box">Hali joy tanlanmagan</div>
     <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash va yuborish</button>
-    <div class="hint">Avval xaritadan nuqta tanlang</div>
+    <div class="hint">Avval xaritadan nuqta tanlang yoki qidiruvdan tanlang</div>
   </div>
 
   <script>
@@ -134,6 +214,12 @@
 
     let selected = null;
     let marker = null;
+    let searchTimer = null;
+
+    const addressBox = document.getElementById("address");
+    const sendBtn = document.getElementById("sendBtn");
+    const searchInput = document.getElementById("searchInput");
+    const searchResults = document.getElementById("searchResults");
 
     const map = L.map("map", {
       zoomControl: true,
@@ -144,65 +230,248 @@
       maxZoom: 19
     }).addTo(map);
 
-    const addressBox = document.getElementById("address");
-    const sendBtn = document.getElementById("sendBtn");
+    function cleanName(value = "") {
+      return String(value)
+        .replace(/\s+/g, " ")
+        .replace(/\b(district|District)\b/g, "")
+        .replace(/\b(tumani|tumani\.)\b/gi, "")
+        .replace(/\b(rayoni|rayon)\b/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
+    function normalizeUzbekRegion(value = "") {
+      const v = String(value).toLowerCase().trim();
+
+      if (!v) return "";
+
+      if (v.includes("toshkent shah") || v === "toshkent city" || v === "tashkent city") {
+        return "Toshkent shahri";
+      }
+      if (v.includes("toshkent")) return "Toshkent viloyati";
+      if (v.includes("samarqand")) return "Samarqand viloyati";
+      if (v.includes("buxoro")) return "Buxoro viloyati";
+      if (v.includes("andijon")) return "Andijon viloyati";
+      if (v.includes("farg")) return "Farg‘ona viloyati";
+      if (v.includes("namangan")) return "Namangan viloyati";
+      if (v.includes("jizzax")) return "Jizzax viloyati";
+      if (v.includes("sirdaryo")) return "Sirdaryo viloyati";
+      if (v.includes("qashqadaryo")) return "Qashqadaryo viloyati";
+      if (v.includes("surxondaryo")) return "Surxondaryo viloyati";
+      if (v.includes("navoiy")) return "Navoiy viloyati";
+      if (v.includes("xorazm")) return "Xorazm viloyati";
+      if (v.includes("qoraqalpog")) return "Qoraqalpog‘iston Respublikasi";
+
+      return value;
+    }
+
+    function extractRegionDistrict(addr = {}) {
+      const isTashkentCity =
+        String(addr.city || "").toLowerCase() === "toshkent" ||
+        String(addr.town || "").toLowerCase() === "toshkent" ||
+        String(addr.municipality || "").toLowerCase() === "toshkent" ||
+        String(addr.state || "").toLowerCase().includes("toshkent shah") ||
+        String(addr.region || "").toLowerCase().includes("toshkent shah");
+
+      let region = "";
+      let district = "";
+
+      if (isTashkentCity) {
+        region = "Toshkent shahri";
+
+        district =
+          cleanName(addr.city_district) ||
+          cleanName(addr.state_district) ||
+          cleanName(addr.borough) ||
+          cleanName(addr.county) ||
+          cleanName(addr.district) ||
+          cleanName(addr.municipality) ||
+          cleanName(addr.suburb) ||
+          cleanName(addr.quarter) ||
+          "Toshkent";
+
+        const d = district.toLowerCase();
+
+        if (
+          d === "toshkent" ||
+          d === "ташкент" ||
+          d === "uzbekistan" ||
+          d === "o‘zbekiston"
+        ) {
+          district =
+            cleanName(addr.city_district) ||
+            cleanName(addr.state_district) ||
+            cleanName(addr.borough) ||
+            cleanName(addr.county) ||
+            cleanName(addr.district) ||
+            cleanName(addr.suburb) ||
+            "Toshkent";
+        }
+
+        return { region, district };
+      }
+
+      region = normalizeUzbekRegion(
+        addr.state ||
+        addr.region ||
+        addr.province ||
+        addr.county ||
+        addr.city ||
+        ""
+      );
+
+      district =
+        cleanName(addr.city_district) ||
+        cleanName(addr.state_district) ||
+        cleanName(addr.county) ||
+        cleanName(addr.district) ||
+        cleanName(addr.city) ||
+        cleanName(addr.town) ||
+        cleanName(addr.village) ||
+        cleanName(addr.municipality) ||
+        cleanName(addr.suburb) ||
+        cleanName(addr.quarter) ||
+        "";
+
+      if (!district) {
+        district = region
+          .replace(" viloyati", "")
+          .replace(" shahri", "")
+          .replace(" Respublikasi", "")
+          .trim();
+      }
+
+      return { region, district };
+    }
 
     async function reverseGeocode(lat, lon) {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=uz`
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=uz`
         );
         const data = await res.json();
 
         const addr = data.address || {};
-        const region =
-          addr.state ||
-          addr.region ||
-          addr.county ||
-          addr.city ||
-          "Toshkent";
+        const parsed = extractRegionDistrict(addr);
 
-        const address =
-          data.display_name ||
-          `${lat}, ${lon}`;
-
-        return { address, region };
+        return {
+          address: data.display_name || `${lat}, ${lon}`,
+          region: parsed.region || "Toshkent shahri",
+          district: parsed.district || "Toshkent"
+        };
       } catch (e) {
         return {
           address: `${lat}, ${lon}`,
-          region: "Toshkent"
+          region: "Toshkent shahri",
+          district: "Toshkent"
         };
       }
     }
 
-    map.on("click", async function (e) {
-      const { lat, lng } = e.latlng;
-
+    async function applySelectedPoint(lat, lon, moveMap = true) {
       if (marker) {
         map.removeLayer(marker);
       }
 
-      marker = L.marker([lat, lng]).addTo(map);
+      marker = L.marker([lat, lon]).addTo(map);
+
+      if (moveMap) {
+        map.setView([lat, lon], 16);
+      }
 
       addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
       sendBtn.disabled = true;
 
-      const geo = await reverseGeocode(lat, lng);
+      const geo = await reverseGeocode(lat, lon);
 
       selected = {
         lat: lat,
-        lon: lng,
+        lon: lon,
         address: geo.address,
         region: geo.region,
+        district: geo.district,
         type: type
       };
 
       addressBox.innerHTML = `
         <b>Adres:</b><br>${geo.address}<br><br>
-        <b>Hudud:</b> ${geo.region}
+        <b>Viloyat:</b> ${geo.region}<br>
+        <b>Tuman/Shahar:</b> ${geo.district}
       `;
 
       sendBtn.disabled = false;
+    }
+
+    map.on("click", async function (e) {
+      const { lat, lng } = e.latlng;
+      searchResults.style.display = "none";
+      await applySelectedPoint(lat, lng, false);
+    });
+
+    async function searchPlaces(query) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&countrycodes=uz&limit=8&addressdetails=1&accept-language=uz`
+        );
+        return await res.json();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function renderSearchResults(items) {
+      if (!items.length) {
+        searchResults.innerHTML = `<div class="empty">Hech narsa topilmadi</div>`;
+        searchResults.style.display = "block";
+        return;
+      }
+
+      searchResults.innerHTML = items.map((item, index) => {
+        return `
+          <div class="search-item" data-index="${index}">
+            ${item.display_name}
+          </div>
+        `;
+      }).join("");
+
+      searchResults.style.display = "block";
+
+      const nodes = searchResults.querySelectorAll(".search-item");
+      nodes.forEach(node => {
+        node.addEventListener("click", async function () {
+          const index = Number(this.dataset.index);
+          const item = items[index];
+          searchInput.value = item.display_name;
+          searchResults.style.display = "none";
+          await applySelectedPoint(Number(item.lat), Number(item.lon), true);
+        });
+      });
+    }
+
+    searchInput.addEventListener("input", function () {
+      const value = this.value.trim();
+
+      clearTimeout(searchTimer);
+
+      if (value.length < 3) {
+        searchResults.style.display = "none";
+        return;
+      }
+
+      searchTimer = setTimeout(async () => {
+        searchResults.innerHTML = `<div class="loading">Qidirilmoqda...</div>`;
+        searchResults.style.display = "block";
+
+        const results = await searchPlaces(value);
+        renderSearchResults(results);
+      }, 400);
+    });
+
+    document.addEventListener("click", function (e) {
+      const insideSearch = e.target.closest(".search-box");
+      if (!insideSearch) {
+        searchResults.style.display = "none";
+      }
     });
 
     sendBtn.addEventListener("click", function () {
