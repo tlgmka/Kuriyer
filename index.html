@@ -3,87 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lokatsiya tanlash</title>
+  <title>Xaritadan tanlash</title>
 
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
   <style>
-    html, body {
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      height: 100%;
       font-family: Arial, sans-serif;
-      background: #f5f5f5;
     }
 
-    #topbar {
-      padding: 12px;
+    body {
+      background: #f5f7fb;
+      color: #111;
+    }
+
+    .topbar {
+      padding: 14px 16px;
       background: white;
-      border-bottom: 1px solid #ddd;
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
+      border-bottom: 1px solid #eaeaea;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #666;
     }
 
     #map {
       width: 100%;
-      height: calc(100vh - 130px);
+      height: 55vh;
     }
 
-    #panel {
-      height: 130px;
+    .panel {
+      padding: 14px;
       background: white;
-      border-top: 1px solid #ddd;
-      padding: 12px;
-      box-sizing: border-box;
+      border-top-left-radius: 18px;
+      border-top-right-radius: 18px;
+      margin-top: -10px;
+      position: relative;
+      z-index: 500;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
     }
 
-    #coords {
+    .label {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+
+    .address-box {
+      min-height: 68px;
+      background: #f7f7f7;
+      border-radius: 12px;
+      padding: 12px;
       font-size: 14px;
-      margin-bottom: 10px;
-      color: #333;
-      word-break: break-word;
+      line-height: 1.4;
+      margin-bottom: 12px;
     }
 
     .btn {
       width: 100%;
+      border: none;
+      border-radius: 14px;
       padding: 14px;
       font-size: 16px;
-      border: none;
-      border-radius: 10px;
+      font-weight: 700;
       cursor: pointer;
-      background: #2AABEE;
-      color: white;
-      font-weight: bold;
     }
 
-    .btn:disabled {
-      background: #9ecfe8;
+    .btn-primary {
+      background: #1f6bff;
+      color: white;
+    }
+
+    .btn-primary:disabled {
+      background: #9ab8ff;
       cursor: not-allowed;
     }
 
-    #hint {
-      font-size: 13px;
-      color: #666;
-      margin-top: 8px;
+    .hint {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #777;
       text-align: center;
+    }
+
+    /* Leaflet zoom tugmasi chiroyliroq */
+    .leaflet-control-zoom a {
+      width: 34px !important;
+      height: 34px !important;
+      line-height: 34px !important;
+      font-size: 18px !important;
     }
   </style>
 </head>
 <body>
-  <div id="topbar">📍 Lokatsiyani tanlang</div>
+  <div class="topbar">
+    <div class="title">📍 Lokatsiyani tanlang</div>
+    <div class="subtitle">Xaritaga bosib aniq joyni belgilang</div>
+  </div>
+
   <div id="map"></div>
 
-  <div id="panel">
-    <div id="coords">Joy aniqlanmoqda...</div>
-    <button id="confirmBtn" class="btn" disabled>Tanlash</button>
-    <div id="hint">Xaritani suring yoki markerni boshqa joyga olib boring</div>
+  <div class="panel">
+    <div class="label">Tanlangan manzil</div>
+    <div id="address" class="address-box">Hali joy tanlanmagan</div>
+    <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash va yuborish</button>
+    <div class="hint">Avval xaritadan nuqta tanlang</div>
   </div>
 
   <script>
@@ -91,86 +130,86 @@
     tg.expand();
 
     const params = new URLSearchParams(window.location.search);
-    const type = params.get("type") || "from"; // from yoki to
+    const type = params.get("type") || "from";
 
-    const defaultLat = 41.3111;   // Tashkent default
-    const defaultLon = 69.2797;
+    let selected = null;
+    let marker = null;
 
-    let selectedLat = defaultLat;
-    let selectedLon = defaultLon;
-
-    const coordsDiv = document.getElementById("coords");
-    const confirmBtn = document.getElementById("confirmBtn");
-
-    const map = L.map("map").setView([defaultLat, defaultLon], 13);
+    const map = L.map("map", {
+      zoomControl: true,
+      attributionControl: false
+    }).setView([41.3111, 69.2797], 12);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap"
+      maxZoom: 19
     }).addTo(map);
 
-    const marker = L.marker([defaultLat, defaultLon], {
-      draggable: true
-    }).addTo(map);
+    const addressBox = document.getElementById("address");
+    const sendBtn = document.getElementById("sendBtn");
 
-    function updateCoords(lat, lon, label = "Tanlangan joy") {
-      selectedLat = lat;
-      selectedLon = lon;
-      coordsDiv.innerHTML = `<b>${label}:</b> ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-      confirmBtn.disabled = false;
+    async function reverseGeocode(lat, lon) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=uz`
+        );
+        const data = await res.json();
+
+        const addr = data.address || {};
+        const region =
+          addr.state ||
+          addr.region ||
+          addr.county ||
+          addr.city ||
+          "Toshkent";
+
+        const address =
+          data.display_name ||
+          `${lat}, ${lon}`;
+
+        return { address, region };
+      } catch (e) {
+        return {
+          address: `${lat}, ${lon}`,
+          region: "Toshkent"
+        };
+      }
     }
 
-    marker.on("dragend", function (e) {
-      const pos = marker.getLatLng();
-      updateCoords(pos.lat, pos.lng);
-      map.panTo(pos);
-    });
+    map.on("click", async function (e) {
+      const { lat, lng } = e.latlng;
 
-    map.on("click", function (e) {
-      marker.setLatLng(e.latlng);
-      updateCoords(e.latlng.lat, e.latlng.lng);
-    });
-
-    function loadCurrentLocation() {
-      if (!navigator.geolocation) {
-        coordsDiv.innerHTML = "Geolokatsiya bu qurilmada ishlamaydi.";
-        updateCoords(defaultLat, defaultLon, "Standart joy");
-        return;
+      if (marker) {
+        map.removeLayer(marker);
       }
 
-      navigator.geolocation.getCurrentPosition(
-        function (position) {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
+      marker = L.marker([lat, lng]).addTo(map);
 
-          map.setView([lat, lon], 16);
-          marker.setLatLng([lat, lon]);
+      addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
+      sendBtn.disabled = true;
 
-          updateCoords(lat, lon, "Sizning hozirgi joyingiz");
-        },
-        function (error) {
-          console.log("Geolocation error:", error);
-          coordsDiv.innerHTML = "Hozirgi joy olinmadi. Xaritada qo‘lda tanlang.";
-          updateCoords(defaultLat, defaultLon, "Standart joy");
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    }
+      const geo = await reverseGeocode(lat, lng);
 
-    confirmBtn.addEventListener("click", function () {
-      tg.sendData(JSON.stringify({
-        type: type,
-        lat: selectedLat,
-        lon: selectedLon
-      }));
-      tg.close();
+      selected = {
+        lat: lat,
+        lon: lng,
+        address: geo.address,
+        region: geo.region,
+        type: type
+      };
+
+      addressBox.innerHTML = `
+        <b>Adres:</b><br>${geo.address}<br><br>
+        <b>Hudud:</b> ${geo.region}
+      `;
+
+      sendBtn.disabled = false;
     });
 
-    loadCurrentLocation();
+    sendBtn.addEventListener("click", function () {
+      if (!selected) return;
+      tg.sendData(JSON.stringify(selected));
+      tg.close();
+    });
   </script>
 </body>
 </html>
