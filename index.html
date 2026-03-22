@@ -119,6 +119,7 @@
       border-radius: 10px;
       padding: 10px;
       margin-top: 10px;
+      display: none;
     }
   </style>
 </head>
@@ -153,7 +154,7 @@
         <span id="coords_text">Tanlanmagan</span>
       </div>
 
-      <div id="debugBox" class="debug" style="display:none;"></div>
+      <div id="debugBox" class="debug"></div>
     </div>
 
     <button id="sendBtn" class="btn" disabled>Tanlangan manzilni yuborish</button>
@@ -164,7 +165,8 @@
     tg.expand();
 
     const params = new URLSearchParams(window.location.search);
-    const pageType = (params.get("type") || "from").toLowerCase();
+    const pageType = (params.get("type") || "from").toLowerCase(); // from | to
+    const debugMode = params.get("debug") === "1";
 
     let map;
     let marker = null;
@@ -191,11 +193,23 @@
         subtitle.textContent = "Yuk olinadigan joyni xaritada belgilang";
         sendBtn.textContent = "Qayerdan manzilni yuborish";
       }
+
+      if (debugMode) {
+        document.getElementById("debugBox").style.display = "block";
+      }
     }
 
     function cleanText(value) {
-      if (!value) return "";
+      if (value === null || value === undefined) return "";
       return String(value).replace(/\s+/g, " ").trim();
+    }
+
+    function firstNotEmpty(...values) {
+      for (const value of values) {
+        const v = cleanText(value);
+        if (v) return v;
+      }
+      return "";
     }
 
     function normalizeName(value) {
@@ -208,8 +222,8 @@
         "tashkent": "Toshkent",
         "toshkent": "Toshkent",
         "tashkent region": "Toshkent viloyati",
-        "toshkent viloyati": "Toshkent viloyati",
         "tashkent province": "Toshkent viloyati",
+        "toshkent viloyati": "Toshkent viloyati",
         "tashkent city": "Toshkent shahri",
         "toshkent city": "Toshkent shahri",
         "toshkent shahri": "Toshkent shahri",
@@ -247,24 +261,108 @@
       return mapNames[lower] || text;
     }
 
-    function firstNotEmpty(...values) {
-      for (const value of values) {
-        const v = cleanText(value);
-        if (v) return v;
-      }
-      return "";
+    function normalizeDistrictName(value) {
+      let text = normalizeName(value);
+      if (!text) return "";
+
+      text = text
+        .replace(/\bDistrict\b/gi, "")
+        .replace(/\bdistrict\b/gi, "")
+        .replace(/\bTumani\b/gi, "")
+        .replace(/\btumani\b/gi, "")
+        .replace(/\bTumani\s*$/gi, "")
+        .replace(/\bрайон\b/gi, "")
+        .replace(/\bрайони\b/gi, "")
+        .trim();
+
+      text = text
+        .replace(/\bShaykhantohur\b/gi, "Shayxontohur")
+        .replace(/\bShaykhantahur\b/gi, "Shayxontohur")
+        .replace(/\bShaikhantakhur\b/gi, "Shayxontohur")
+        .replace(/\bMirzo Ulugbek\b/gi, "Mirzo Ulug‘bek")
+        .replace(/\bYunusabad\b/gi, "Yunusobod")
+        .replace(/\bChilanzar\b/gi, "Chilonzor")
+        .replace(/\bUchtepa\b/gi, "Uchtepa")
+        .replace(/\bOlmazar\b/gi, "Olmazor")
+        .replace(/\bYakkasaray\b/gi, "Yakkasaroy")
+        .replace(/\bSergeli\b/gi, "Sergeli")
+        .replace(/\bMirobod\b/gi, "Mirobod")
+        .replace(/\bYashnobod\b/gi, "Yashnobod")
+        .replace(/\bBektemir\b/gi, "Bektemir");
+
+      return cleanText(text);
+    }
+
+    function looksLikeTashkent(value) {
+      const v = cleanText(value).toLowerCase();
+      return [
+        "toshkent",
+        "tashkent",
+        "toshkent shahri",
+        "tashkent city"
+      ].includes(v);
     }
 
     function isSamePlace(a, b) {
       return cleanText(a).toLowerCase() === cleanText(b).toLowerCase();
     }
 
-    function looksLikeTashkent(value) {
-      const v = cleanText(value).toLowerCase();
-      return v === "toshkent" || v === "tashkent" || v === "toshkent shahri" || v === "tashkent city";
+    function extractDistrictFromDisplayName(displayName) {
+      const text = cleanText(displayName);
+      if (!text) return "";
+
+      const parts = text.split(",").map(x => cleanText(x)).filter(Boolean);
+
+      for (const part of parts) {
+        const lower = part.toLowerCase();
+
+        if (
+          lower.includes("district") ||
+          lower.includes("tumani") ||
+          lower.includes("rayoni") ||
+          lower.includes("rayon")
+        ) {
+          return normalizeDistrictName(part);
+        }
+      }
+
+      return "";
     }
 
-    function parseAddressData(addr) {
+    function detectTashkentDistrictFromText(text) {
+      const value = cleanText(text).toLowerCase();
+
+      const districtMap = [
+        ["shaykhantahur", "Shayxontohur"],
+        ["shaykhantohur", "Shayxontohur"],
+        ["shaikhantakhur", "Shayxontohur"],
+        ["chilonzor", "Chilonzor"],
+        ["chilanzar", "Chilonzor"],
+        ["yunusobod", "Yunusobod"],
+        ["yunusabad", "Yunusobod"],
+        ["mirzo ulug", "Mirzo Ulug‘bek"],
+        ["mirobod", "Mirobod"],
+        ["olmazor", "Olmazor"],
+        ["olmazar", "Olmazor"],
+        ["uchtepa", "Uchtepa"],
+        ["yakkasaroy", "Yakkasaroy"],
+        ["yakkasaray", "Yakkasaroy"],
+        ["bektemir", "Bektemir"],
+        ["sergeli", "Sergeli"],
+        ["yashnobod", "Yashnobod"],
+        ["yashnabod", "Yashnobod"]
+      ];
+
+      for (const [needle, result] of districtMap) {
+        if (value.includes(needle)) {
+          return result;
+        }
+      }
+
+      return "";
+    }
+
+    function parseAddressData(addr, displayName = "") {
       const state = normalizeName(addr.state);
       const regionField = normalizeName(addr.region);
       const province = normalizeName(addr.province);
@@ -275,23 +373,58 @@
       const village = normalizeName(addr.village);
       const municipality = normalizeName(addr.municipality);
 
-      const cityDistrict = normalizeName(addr.city_district);
-      const districtField = normalizeName(addr.district);
-      const suburb = normalizeName(addr.suburb);
-      const borough = normalizeName(addr.borough);
-      const neighbourhood = normalizeName(addr.neighbourhood);
+      const cityDistrict = normalizeDistrictName(addr.city_district);
+      const districtField = normalizeDistrictName(addr.district);
+      const suburb = normalizeDistrictName(addr.suburb);
+      const borough = normalizeDistrictName(addr.borough);
+      const neighbourhood = normalizeDistrictName(addr.neighbourhood);
+
+      const displayDistrict = normalizeDistrictName(
+        extractDistrictFromDisplayName(displayName)
+      );
+
+      const detectedFromText = detectTashkentDistrictFromText(
+        [
+          state,
+          regionField,
+          province,
+          county,
+          city,
+          town,
+          village,
+          municipality,
+          cityDistrict,
+          districtField,
+          suburb,
+          borough,
+          neighbourhood,
+          displayName
+        ].join(" ")
+      );
 
       const allText = [
-        state, regionField, province, county,
-        city, town, village, municipality,
-        cityDistrict, districtField, suburb, borough, neighbourhood
+        state,
+        regionField,
+        province,
+        county,
+        city,
+        town,
+        village,
+        municipality,
+        cityDistrict,
+        districtField,
+        suburb,
+        borough,
+        neighbourhood,
+        displayName
       ].join(" ").toLowerCase();
 
       const isTashkentCity =
         allText.includes("toshkent shahri") ||
         allText.includes("tashkent city") ||
-        (looksLikeTashkent(state) && looksLikeTashkent(city)) ||
-        (looksLikeTashkent(regionField) && looksLikeTashkent(city));
+        looksLikeTashkent(state) ||
+        looksLikeTashkent(regionField) ||
+        detectTashkentDistrictFromText(allText) !== "";
 
       let region = "";
       let district = "";
@@ -300,16 +433,20 @@
         region = "Toshkent shahri";
 
         district = firstNotEmpty(
+          detectedFromText,
+          displayDistrict,
           cityDistrict,
           districtField,
+          county,
           suburb,
           borough,
-          county,
           neighbourhood
         );
 
         if (!district || looksLikeTashkent(district)) {
           district = firstNotEmpty(
+            detectedFromText,
+            displayDistrict,
             county,
             cityDistrict,
             districtField,
@@ -330,11 +467,13 @@
         );
 
         district = firstNotEmpty(
+          displayDistrict,
           cityDistrict,
           districtField,
+          county,
           suburb,
           borough,
-          county
+          neighbourhood
         );
 
         if (!district) {
@@ -359,18 +498,25 @@
           );
         }
 
+        if (!region) {
+          region = district;
+        }
+
         if (!district) {
           district = region;
         }
 
-        if (isSamePlace(region, district)) {
+        if (district && region && isSamePlace(district, region)) {
           const altDistrict = firstNotEmpty(
+            displayDistrict,
             cityDistrict,
             districtField,
+            county,
             suburb,
             borough,
-            county
+            neighbourhood
           );
+
           if (altDistrict && !isSamePlace(altDistrict, region)) {
             district = altDistrict;
           }
@@ -396,11 +542,13 @@
         addr.state,
         addr.country
       ]
-      .map(cleanText)
-      .filter(Boolean);
+        .map(cleanText)
+        .filter(Boolean);
 
       const uniqueParts = [...new Set(parts)];
-      return uniqueParts.length ? uniqueParts.join(", ") : cleanText(fallbackDisplayName || "");
+      return uniqueParts.length
+        ? uniqueParts.join(", ")
+        : cleanText(fallbackDisplayName || "");
     }
 
     function updateInfo(loading = false) {
@@ -423,11 +571,15 @@
         !(selectedData.lat && selectedData.lon && selectedData.region && selectedData.district) || loading;
     }
 
-    function showDebug(addr, parsed) {
+    function showDebug(addr, parsed, displayName) {
+      if (!debugMode) return;
+
       const box = document.getElementById("debugBox");
-      box.style.display = "block";
       box.textContent =
-`RAW:
+`DISPLAY_NAME:
+${displayName || ""}
+
+RAW ADDRESS:
 state = ${addr.state || ""}
 region = ${addr.region || ""}
 province = ${addr.province || ""}
@@ -492,8 +644,8 @@ district = ${parsed.district}`;
       try {
         const data = await reverseGeocode(fixedLat, fixedLon);
         const addr = data.address || {};
-        const parsed = parseAddressData(addr);
-        const readableAddress = buildReadableAddress(addr, data.display_name);
+        const parsed = parseAddressData(addr, data.display_name || "");
+        const readableAddress = buildReadableAddress(addr, data.display_name || "");
 
         selectedData = {
           lat: fixedLat,
@@ -504,8 +656,10 @@ district = ${parsed.district}`;
         };
 
         console.log("RAW ADDRESS:", addr);
+        console.log("DISPLAY_NAME:", data.display_name);
         console.log("PARSED:", parsed);
-        showDebug(addr, parsed);
+
+        showDebug(addr, parsed, data.display_name || "");
         updateInfo(false);
       } catch (error) {
         console.error(error);
