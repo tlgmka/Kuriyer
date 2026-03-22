@@ -2,10 +2,7 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Xaritadan tanlash</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -20,27 +17,18 @@
       font-family: Arial, sans-serif;
     }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
+    body {
       background: #f5f7fb;
       color: #111;
     }
 
-    body {
-      position: relative;
-    }
-
     .topbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
       padding: 14px 16px;
-      background: #fff;
+      background: white;
       border-bottom: 1px solid #eaeaea;
-      z-index: 1200;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
     }
 
     .title {
@@ -54,147 +42,20 @@
       color: #666;
     }
 
-    .search-wrap {
-      position: relative;
-      margin-top: 12px;
-    }
-
-    .search-bar {
-      display: flex;
-      gap: 8px;
-    }
-
-    .search-input {
-      flex: 1;
-      border: 1px solid #d9d9d9;
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 14px;
-      outline: none;
-      background: #fff;
-    }
-
-    .search-input:focus {
-      border-color: #1f6bff;
-    }
-
-    .search-btn {
-      border: none;
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      background: #1f6bff;
-      color: #fff;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .search-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
-
-    .suggestions {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      right: 0;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-      overflow: hidden;
-      display: none;
-      max-height: 220px;
-      overflow-y: auto;
-      z-index: 1300;
-    }
-
-    .suggestion-item {
-      padding: 12px 14px;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 14px;
-      line-height: 1.35;
-      cursor: pointer;
-      background: #fff;
-    }
-
-    .suggestion-item:last-child {
-      border-bottom: none;
-    }
-
-    .suggestion-item:hover {
-      background: #f7f9ff;
-    }
-
-    .map-wrap {
-      position: fixed;
-      top: 108px;
-      left: 0;
-      right: 0;
-      bottom: 188px;
-      overflow: hidden;
-      background: #eee;
-    }
-
     #map {
       width: 100%;
-      height: 100%;
-    }
-
-    .center-pin {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -100%);
-      z-index: 900;
-      pointer-events: none;
-      font-size: 34px;
-      line-height: 1;
-      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
-    }
-
-    .center-pin.bounce {
-      animation: pinBounce 0.25s ease;
-    }
-
-    @keyframes pinBounce {
-      0% { transform: translate(-50%, -100%); }
-      50% { transform: translate(-50%, -108%); }
-      100% { transform: translate(-50%, -100%); }
-    }
-
-    .gps-btn {
-      position: absolute;
-      right: 14px;
-      bottom: 14px;
-      z-index: 950;
-      background: white;
-      border: none;
-      border-radius: 14px;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-      cursor: pointer;
-    }
-
-    .gps-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
+      height: 55vh;
     }
 
     .panel {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 1250;
       padding: 14px;
-      background: #fff;
+      background: white;
       border-top-left-radius: 18px;
       border-top-right-radius: 18px;
-      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+      margin-top: -10px;
+      position: relative;
+      z-index: 500;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
     }
 
     .label {
@@ -204,14 +65,12 @@
     }
 
     .address-box {
-      min-height: 78px;
-      max-height: 110px;
-      overflow-y: auto;
+      min-height: 68px;
       background: #f7f7f7;
       border-radius: 12px;
       padding: 12px;
       font-size: 14px;
-      line-height: 1.45;
+      line-height: 1.4;
       margin-bottom: 12px;
     }
 
@@ -236,16 +95,13 @@
     }
 
     .hint {
-      margin-top: 8px;
+      margin-top: 10px;
       font-size: 12px;
       color: #777;
       text-align: center;
     }
 
-    .leaflet-control-attribution {
-      display: none !important;
-    }
-
+    /* Leaflet zoom tugmasi chiroyliroq */
     .leaflet-control-zoom a {
       width: 34px !important;
       height: 34px !important;
@@ -257,35 +113,16 @@
 <body>
   <div class="topbar">
     <div class="title">📍 Lokatsiyani tanlang</div>
-    <div class="subtitle">Adres yozing yoki xaritani suring</div>
-
-    <div class="search-wrap">
-      <div class="search-bar">
-        <input
-          id="searchInput"
-          class="search-input"
-          type="text"
-          placeholder="Masalan: Bulungur, Samarqand"
-          autocomplete="off"
-        />
-        <button id="searchBtn" class="search-btn">Qidirish</button>
-      </div>
-
-      <div id="suggestions" class="suggestions"></div>
-    </div>
+    <div class="subtitle">Xaritaga bosib aniq joyni belgilang</div>
   </div>
 
-  <div class="map-wrap">
-    <div id="map"></div>
-    <div id="centerPin" class="center-pin">📍</div>
-    <button id="myLocationBtn" class="gps-btn">📍 Mening joylashuvim</button>
-  </div>
+  <div id="map"></div>
 
   <div class="panel">
     <div class="label">Tanlangan manzil</div>
-    <div id="address" class="address-box">Joylashuv aniqlanmoqda...</div>
+    <div id="address" class="address-box">Hali joy tanlanmagan</div>
     <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash va yuborish</button>
-    <div class="hint">Taklif tanlang yoki xaritani surib aniq joyni belgilang</div>
+    <div class="hint">Avval xaritadan nuqta tanlang</div>
   </div>
 
   <script>
@@ -295,130 +132,20 @@
     const params = new URLSearchParams(window.location.search);
     const type = params.get("type") || "from";
 
-    const defaultLat = 41.3111;
-    const defaultLon = 69.2797;
-
     let selected = null;
-    let geocodeTimer = null;
-    let suggestTimer = null;
-    let requestCounter = 0;
-    let suggestCounter = 0;
-
-    const addressBox = document.getElementById("address");
-    const sendBtn = document.getElementById("sendBtn");
-    const myLocationBtn = document.getElementById("myLocationBtn");
-    const centerPin = document.getElementById("centerPin");
-    const searchInput = document.getElementById("searchInput");
-    const searchBtn = document.getElementById("searchBtn");
-    const suggestionsBox = document.getElementById("suggestions");
+    let marker = null;
 
     const map = L.map("map", {
       zoomControl: true,
       attributionControl: false
-    }).setView([defaultLat, defaultLon], 12);
+    }).setView([41.3111, 69.2797], 12);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19
     }).addTo(map);
 
-    function bouncePin() {
-      centerPin.classList.remove("bounce");
-      void centerPin.offsetWidth;
-      centerPin.classList.add("bounce");
-    }
-
-    function normalizeRegion(addr, displayName = "") {
-      const fullText = `
-        ${addr.state || ""}
-        ${addr.region || ""}
-        ${addr.county || ""}
-        ${addr.city || ""}
-        ${addr.town || ""}
-        ${addr.village || ""}
-        ${addr.suburb || ""}
-        ${displayName || ""}
-      `.toLowerCase();
-
-      const toshkentShahriDistricts = [
-        "bektemir", "chilonzor", "mirobod", "mirzo ulug", "olmazor",
-        "sergeli", "shayxontohur", "uchtepa", "yakkasaroy", "yunusobod",
-        "yashnobod", "yangihayot"
-      ];
-
-      const toshkentViloyatiDistricts = [
-        "bekobod", "bo'ka", "buka", "chinoz", "qibray", "ohangaron",
-        "oqqo'rg'on", "oqqorgon", "parkent", "piskent", "quyichirchiq",
-        "o'rtachirchiq", "urtachirchiq", "yuqorichirchiq", "zangiota",
-        "toshkent tumani", "angren", "olmaliq", "almalyk", "chirchiq",
-        "nurafshon", "yangiyo'l", "yangiyol", "ohangaron shahri"
-      ];
-
-      if (toshkentShahriDistricts.some(d => fullText.includes(d))) return "Toshkent shahri";
-      if (toshkentViloyatiDistricts.some(d => fullText.includes(d))) return "Toshkent viloyati";
-
-      if (fullText.includes("samarkand") || fullText.includes("samarqand")) return "Samarqand";
-      if (fullText.includes("bukhara") || fullText.includes("buxoro")) return "Buxoro";
-      if (fullText.includes("andijan") || fullText.includes("andijon")) return "Andijon";
-      if (fullText.includes("namangan")) return "Namangan";
-      if (fullText.includes("fergana") || fullText.includes("farg")) return "Farg‘ona";
-      if (fullText.includes("kashkadarya") || fullText.includes("qashqadaryo")) return "Qashqadaryo";
-      if (fullText.includes("surkhandarya") || fullText.includes("surxondaryo")) return "Surxondaryo";
-      if (fullText.includes("jizzakh") || fullText.includes("jizzax")) return "Jizzax";
-      if (fullText.includes("sirdaryo") || fullText.includes("syrdarya")) return "Sirdaryo";
-      if (fullText.includes("navoi") || fullText.includes("navoiy")) return "Navoiy";
-      if (fullText.includes("khorezm") || fullText.includes("xorazm")) return "Xorazm";
-      if (
-        fullText.includes("karakalpak") ||
-        fullText.includes("qoraqalpoq") ||
-        fullText.includes("qoraqalpog")
-      ) return "Qoraqalpog‘iston";
-
-      return "Toshkent shahri";
-    }
-
-    function normalizeDistrict(addr) {
-      const value =
-        addr.city_district ||
-        addr.suburb ||
-        addr.city ||
-        addr.town ||
-        addr.village ||
-        addr.county ||
-        "Noma’lum tuman";
-
-      return String(value).trim();
-    }
-
-    function showSuggestions(items) {
-      if (!items || !items.length) {
-        suggestionsBox.style.display = "none";
-        suggestionsBox.innerHTML = "";
-        return;
-      }
-
-      suggestionsBox.innerHTML = items.map((item, index) => `
-        <div class="suggestion-item" data-index="${index}">
-          ${item.display_name}
-        </div>
-      `).join("");
-
-      suggestionsBox.style.display = "block";
-
-      const elements = suggestionsBox.querySelectorAll(".suggestion-item");
-      elements.forEach((el) => {
-        el.addEventListener("click", () => {
-          const idx = Number(el.dataset.index);
-          const picked = items[idx];
-          if (!picked) return;
-
-          searchInput.value = picked.display_name;
-          suggestionsBox.style.display = "none";
-          map.setView([Number(picked.lat), Number(picked.lon)], 17, { animate: true });
-          bouncePin();
-          scheduleCenterUpdate();
-        });
-      });
-    }
+    const addressBox = document.getElementById("address");
+    const sendBtn = document.getElementById("sendBtn");
 
     async function reverseGeocode(lat, lon) {
       try {
@@ -428,226 +155,61 @@
         const data = await res.json();
 
         const addr = data.address || {};
-        const address = data.display_name || `${lat}, ${lon}`;
-        const region = normalizeRegion(addr, address);
-        const district = normalizeDistrict(addr);
+        const region =
+          addr.state ||
+          addr.region ||
+          addr.county ||
+          addr.city ||
+          "Toshkent";
 
-        return { address, region, district };
+        const address =
+          data.display_name ||
+          `${lat}, ${lon}`;
+
+        return { address, region };
       } catch (e) {
         return {
           address: `${lat}, ${lon}`,
-          region: "Toshkent shahri",
-          district: "Noma’lum tuman"
+          region: "Toshkent"
         };
       }
     }
 
-    async function searchPlace(query, limit = 1) {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&accept-language=uz&limit=${limit}`
-        );
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-      } catch (e) {
-        return [];
+    map.on("click", async function (e) {
+      const { lat, lng } = e.latlng;
+
+      if (marker) {
+        map.removeLayer(marker);
       }
-    }
 
-    async function updateSelectedFromCenter() {
-      const center = map.getCenter();
-      const lat = Number(center.lat.toFixed(7));
-      const lon = Number(center.lng.toFixed(7));
-
-      const currentRequest = ++requestCounter;
+      marker = L.marker([lat, lng]).addTo(map);
 
       addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
       sendBtn.disabled = true;
 
-      const geo = await reverseGeocode(lat, lon);
-
-      if (currentRequest !== requestCounter) return;
+      const geo = await reverseGeocode(lat, lng);
 
       selected = {
         lat: lat,
-        lon: lon,
+        lon: lng,
         address: geo.address,
         region: geo.region,
-        district: geo.district,
         type: type
       };
 
       addressBox.innerHTML = `
         <b>Adres:</b><br>${geo.address}<br><br>
-        <b>Viloyat:</b> ${geo.region}<br>
-        <b>Tuman/Shahar:</b> ${geo.district}
+        <b>Hudud:</b> ${geo.region}
       `;
 
       sendBtn.disabled = false;
-    }
-
-    function scheduleCenterUpdate() {
-      if (geocodeTimer) clearTimeout(geocodeTimer);
-      geocodeTimer = setTimeout(() => {
-        updateSelectedFromCenter();
-      }, 450);
-    }
-
-    function moveToCurrentLocation() {
-      if (!navigator.geolocation) {
-        addressBox.innerHTML = "Geolokatsiya ishlamaydi. Xarita orqali joy tanlang.";
-        return;
-      }
-
-      myLocationBtn.disabled = true;
-      myLocationBtn.textContent = "⏳ Aniqlanmoqda...";
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-
-          map.setView([lat, lon], 17, { animate: true });
-          bouncePin();
-
-          myLocationBtn.disabled = false;
-          myLocationBtn.textContent = "📍 Mening joylashuvim";
-
-          scheduleCenterUpdate();
-        },
-        () => {
-          myLocationBtn.disabled = false;
-          myLocationBtn.textContent = "📍 Mening joylashuvim";
-          addressBox.innerHTML = "Joylashuv olinmadi. Xarita orqali joy tanlang.";
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    }
-
-    async function handleSearch() {
-      const query = searchInput.value.trim();
-
-      if (!query) {
-        addressBox.innerHTML = "❌ Avval manzil yozing.";
-        return;
-      }
-
-      suggestionsBox.style.display = "none";
-      searchBtn.disabled = true;
-      searchBtn.textContent = "⏳ Qidirilyapti...";
-      addressBox.innerHTML = "⏳ Qidirilyapti...";
-      sendBtn.disabled = true;
-
-      const result = await searchPlace(query, 1);
-
-      searchBtn.disabled = false;
-      searchBtn.textContent = "Qidirish";
-
-      if (!result.length) {
-        addressBox.innerHTML = "❌ Manzil topilmadi. Boshqacha yozib ko‘ring.";
-        return;
-      }
-
-      map.setView([Number(result[0].lat), Number(result[0].lon)], 17, { animate: true });
-      bouncePin();
-      scheduleCenterUpdate();
-    }
-
-    function scheduleSuggestions() {
-      if (suggestTimer) clearTimeout(suggestTimer);
-
-      const query = searchInput.value.trim();
-
-      if (query.length < 2) {
-        showSuggestions([]);
-        return;
-      }
-
-      suggestTimer = setTimeout(async () => {
-        const currentSuggest = ++suggestCounter;
-        const results = await searchPlace(query, 5);
-        if (currentSuggest !== suggestCounter) return;
-        showSuggestions(results);
-      }, 300);
-    }
-
-    map.on("movestart", () => {
-      sendBtn.disabled = true;
-      addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
     });
 
-    map.on("moveend", () => {
-      bouncePin();
-      scheduleCenterUpdate();
-    });
-
-    myLocationBtn.addEventListener("click", () => {
-      moveToCurrentLocation();
-    });
-
-    searchBtn.addEventListener("click", () => {
-      handleSearch();
-    });
-
-    searchInput.addEventListener("input", () => {
-      scheduleSuggestions();
-    });
-
-    searchInput.addEventListener("focus", () => {
-      scheduleSuggestions();
-    });
-
-    searchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleSearch();
-      }
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest(".search-wrap")) {
-        suggestionsBox.style.display = "none";
-      }
-    });
-
-    sendBtn.addEventListener("click", () => {
+    sendBtn.addEventListener("click", function () {
       if (!selected) return;
       tg.sendData(JSON.stringify(selected));
       tg.close();
     });
-
-    function updateMapBounds() {
-      const topbar = document.querySelector(".topbar");
-      const panel = document.querySelector(".panel");
-      const mapWrap = document.querySelector(".map-wrap");
-
-      const topHeight = topbar.offsetHeight;
-      const bottomHeight = panel.offsetHeight;
-
-      mapWrap.style.top = `${topHeight}px`;
-      mapWrap.style.bottom = `${bottomHeight}px`;
-
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
-
-    window.addEventListener("resize", updateMapBounds);
-
-    moveToCurrentLocation();
-
-    setTimeout(() => {
-      if (!selected) {
-        scheduleCenterUpdate();
-      }
-    }, 1200);
-
-    setTimeout(updateMapBounds, 150);
-    setTimeout(updateMapBounds, 500);
   </script>
 </body>
 </html>
