@@ -2,7 +2,7 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Xaritadan tanlash</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -17,18 +17,27 @@
       font-family: Arial, sans-serif;
     }
 
-    body {
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: #f5f7fb;
       color: #111;
     }
 
+    body {
+      position: relative;
+    }
+
     .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
       padding: 14px 16px;
       background: white;
       border-bottom: 1px solid #eaeaea;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
+      z-index: 1200;
     }
 
     .title {
@@ -42,10 +51,14 @@
       color: #666;
     }
 
+    .search-wrap {
+      position: relative;
+      margin-top: 12px;
+    }
+
     .search-bar {
       display: flex;
       gap: 8px;
-      margin-top: 12px;
     }
 
     .search-input {
@@ -70,11 +83,45 @@
       white-space: nowrap;
     }
 
-    .map-wrap {
-      position: relative;
-      width: 100%;
-      height: 58vh;
+    .suggestions {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
       overflow: hidden;
+      display: none;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 1300;
+    }
+
+    .suggestion-item {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      line-height: 1.35;
+      cursor: pointer;
+    }
+
+    .suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion-item:hover {
+      background: #f7f9ff;
+    }
+
+    .map-wrap {
+      position: fixed;
+      top: 108px;
+      left: 0;
+      right: 0;
+      bottom: 168px;
+      overflow: hidden;
+      background: #eee;
     }
 
     #map {
@@ -120,13 +167,15 @@
     }
 
     .panel {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1250;
       padding: 14px;
       background: white;
       border-top-left-radius: 18px;
       border-top-right-radius: 18px;
-      margin-top: -10px;
-      position: relative;
-      z-index: 500;
       box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
     }
 
@@ -137,7 +186,9 @@
     }
 
     .address-box {
-      min-height: 72px;
+      min-height: 68px;
+      max-height: 96px;
+      overflow-y: auto;
       background: #f7f7f7;
       border-radius: 12px;
       padding: 12px;
@@ -167,7 +218,7 @@
     }
 
     .hint {
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: 12px;
       color: #777;
       text-align: center;
@@ -190,14 +241,19 @@
     <div class="title">📍 Lokatsiyani tanlang</div>
     <div class="subtitle">Adres yozing yoki xaritani suring</div>
 
-    <div class="search-bar">
-      <input
-        id="searchInput"
-        class="search-input"
-        type="text"
-        placeholder="Masalan: Chilonzor 19-kvartal, Toshkent"
-      />
-      <button id="searchBtn" class="search-btn">Qidirish</button>
+    <div class="search-wrap">
+      <div class="search-bar">
+        <input
+          id="searchInput"
+          class="search-input"
+          type="text"
+          placeholder="Masalan: Chilonzor 19-kvartal"
+          autocomplete="off"
+        />
+        <button id="searchBtn" class="search-btn">Qidirish</button>
+      </div>
+
+      <div id="suggestions" class="suggestions"></div>
     </div>
   </div>
 
@@ -211,7 +267,7 @@
     <div class="label">Tanlangan manzil</div>
     <div id="address" class="address-box">Joylashuv aniqlanmoqda...</div>
     <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash va yuborish</button>
-    <div class="hint">Aniq joy tanlash uchun qidiruvdan keyin ham xaritani surishingiz mumkin</div>
+    <div class="hint">Taklif tanlang yoki xaritani surib aniq joyni belgilang</div>
   </div>
 
   <script>
@@ -226,7 +282,9 @@
 
     let selected = null;
     let geocodeTimer = null;
+    let suggestTimer = null;
     let requestCounter = 0;
+    let suggestCounter = 0;
 
     const addressBox = document.getElementById("address");
     const sendBtn = document.getElementById("sendBtn");
@@ -234,6 +292,7 @@
     const centerPin = document.getElementById("centerPin");
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
+    const suggestionsBox = document.getElementById("suggestions");
 
     const map = L.map("map", {
       zoomControl: true,
@@ -248,6 +307,37 @@
       centerPin.classList.remove("bounce");
       void centerPin.offsetWidth;
       centerPin.classList.add("bounce");
+    }
+
+    function showSuggestions(items) {
+      if (!items || !items.length) {
+        suggestionsBox.style.display = "none";
+        suggestionsBox.innerHTML = "";
+        return;
+      }
+
+      suggestionsBox.innerHTML = items.map((item, index) => `
+        <div class="suggestion-item" data-index="${index}">
+          ${item.display_name}
+        </div>
+      `).join("");
+
+      suggestionsBox.style.display = "block";
+
+      const elements = suggestionsBox.querySelectorAll(".suggestion-item");
+      elements.forEach((el) => {
+        el.addEventListener("click", () => {
+          const idx = Number(el.dataset.index);
+          const picked = items[idx];
+          if (!picked) return;
+
+          searchInput.value = picked.display_name;
+          suggestionsBox.style.display = "none";
+          map.setView([Number(picked.lat), Number(picked.lon)], 17, { animate: true });
+          bouncePin();
+          scheduleCenterUpdate();
+        });
+      });
     }
 
     async function reverseGeocode(lat, lon) {
@@ -277,24 +367,15 @@
       }
     }
 
-    async function searchPlace(query) {
+    async function searchPlace(query, limit = 1) {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&accept-language=uz&limit=1`
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&accept-language=uz&limit=${limit}`
         );
         const data = await res.json();
-
-        if (!data || !data.length) {
-          return null;
-        }
-
-        return {
-          lat: parseFloat(data[0].lat),
-          lon: parseFloat(data[0].lon),
-          display_name: data[0].display_name
-        };
+        return Array.isArray(data) ? data : [];
       } catch (e) {
-        return null;
+        return [];
       }
     }
 
@@ -378,24 +459,43 @@
         return;
       }
 
+      suggestionsBox.style.display = "none";
       searchBtn.disabled = true;
       searchBtn.textContent = "⏳ Qidirilyapti...";
       addressBox.innerHTML = "⏳ Qidirilyapti...";
       sendBtn.disabled = true;
 
-      const result = await searchPlace(query);
+      const result = await searchPlace(query, 1);
 
       searchBtn.disabled = false;
       searchBtn.textContent = "Qidirish";
 
-      if (!result) {
+      if (!result.length) {
         addressBox.innerHTML = "❌ Manzil topilmadi. Boshqacha yozib ko‘ring.";
         return;
       }
 
-      map.setView([result.lat, result.lon], 17, { animate: true });
+      map.setView([Number(result[0].lat), Number(result[0].lon)], 17, { animate: true });
       bouncePin();
       scheduleCenterUpdate();
+    }
+
+    function scheduleSuggestions() {
+      if (suggestTimer) clearTimeout(suggestTimer);
+
+      const query = searchInput.value.trim();
+
+      if (query.length < 2) {
+        showSuggestions([]);
+        return;
+      }
+
+      suggestTimer = setTimeout(async () => {
+        const currentSuggest = ++suggestCounter;
+        const results = await searchPlace(query, 5);
+        if (currentSuggest !== suggestCounter) return;
+        showSuggestions(results);
+      }, 300);
     }
 
     map.on("movestart", () => {
@@ -416,10 +516,24 @@
       handleSearch();
     });
 
+    searchInput.addEventListener("input", () => {
+      scheduleSuggestions();
+    });
+
+    searchInput.addEventListener("focus", () => {
+      scheduleSuggestions();
+    });
+
     searchInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
         handleSearch();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".search-wrap")) {
+        suggestionsBox.style.display = "none";
       }
     });
 
@@ -436,6 +550,25 @@
         scheduleCenterUpdate();
       }
     }, 1200);
+
+    function updateMapTop() {
+      const topbar = document.querySelector(".topbar");
+      const panel = document.querySelector(".panel");
+      const topHeight = topbar.offsetHeight;
+      const bottomHeight = panel.offsetHeight;
+      const mapWrap = document.querySelector(".map-wrap");
+
+      mapWrap.style.top = `${topHeight}px`;
+      mapWrap.style.bottom = `${bottomHeight}px`;
+
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+    }
+
+    window.addEventListener("resize", updateMapTop);
+    setTimeout(updateMapTop, 150);
+    setTimeout(updateMapTop, 500);
   </script>
 </body>
 </html>
