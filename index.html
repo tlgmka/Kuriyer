@@ -194,20 +194,40 @@
 
       const mapNames = {
         "tashkent": "Toshkent",
+        "toshkent": "Toshkent",
+        "tashkent region": "Toshkent viloyati",
+        "toshkent viloyati": "Toshkent viloyati",
+        "tashkent province": "Toshkent viloyati",
         "tashkent city": "Toshkent shahri",
         "toshkent city": "Toshkent shahri",
         "toshkent shahri": "Toshkent shahri",
+
         "samarkand": "Samarqand",
+        "samarkand region": "Samarqand viloyati",
         "bukhara": "Buxoro",
+        "bukhara region": "Buxoro viloyati",
         "fergana": "Farg‘ona",
+        "ferghana": "Farg‘ona",
+        "fergana region": "Farg‘ona viloyati",
         "andijan": "Andijon",
+        "andijan region": "Andijon viloyati",
         "namangan": "Namangan",
+        "namangan region": "Namangan viloyati",
         "jizzakh": "Jizzax",
+        "jizzakh region": "Jizzax viloyati",
         "khorezm": "Xorazm",
+        "khorezm region": "Xorazm viloyati",
         "navoi": "Navoiy",
+        "navoiy": "Navoiy",
+        "navoi region": "Navoiy viloyati",
         "kashkadarya": "Qashqadaryo",
+        "qashqadaryo": "Qashqadaryo",
+        "kashkadarya region": "Qashqadaryo viloyati",
         "surkhandarya": "Surxondaryo",
+        "surxondaryo": "Surxondaryo",
+        "surkhandarya region": "Surxondaryo viloyati",
         "sirdaryo": "Sirdaryo",
+        "sirdaryo region": "Sirdaryo viloyati",
         "republic of karakalpakstan": "Qoraqalpog‘iston Respublikasi",
         "karakalpakstan": "Qoraqalpog‘iston Respublikasi"
       };
@@ -224,47 +244,111 @@
     }
 
     function parseAddressData(addr) {
-      let region = normalizeName(
-        firstNotEmpty(
-          addr.state,
-          addr.region,
-          addr.province
-        )
-      );
+      const state = normalizeName(addr.state);
+      const regionField = normalizeName(addr.region);
+      const province = normalizeName(addr.province);
+      const county = normalizeName(addr.county);
 
-      let district = normalizeName(
-        firstNotEmpty(
-          addr.city_district,
-          addr.district,
-          addr.suburb,
-          addr.borough
-        )
-      );
+      const city = normalizeName(addr.city);
+      const town = normalizeName(addr.town);
+      const village = normalizeName(addr.village);
+      const municipality = normalizeName(addr.municipality);
 
-      let cityLike = normalizeName(
-        firstNotEmpty(
-          addr.city,
-          addr.town,
-          addr.village,
-          addr.municipality,
-          addr.county
-        )
-      );
+      const cityDistrict = normalizeName(addr.city_district);
+      const districtField = normalizeName(addr.district);
+      const suburb = normalizeName(addr.suburb);
+      const borough = normalizeName(addr.borough);
 
+      let region = "";
+      let district = "";
+
+      const allText = [
+        state, regionField, province, county,
+        city, town, village, municipality,
+        cityDistrict, districtField, suburb, borough
+      ].join(" ").toLowerCase();
+
+      // 1) Regionni aniqlash
+      if (
+        allText.includes("toshkent shahri") ||
+        allText.includes("tashkent city")
+      ) {
+        region = "Toshkent shahri";
+      } else {
+        region =
+          firstNotEmpty(
+            state,
+            regionField,
+            province
+          );
+      }
+
+      // 2) District uchun faqat haqiqiy tuman maydonlari
+      district =
+        firstNotEmpty(
+          cityDistrict,
+          districtField,
+          suburb,
+          borough
+        );
+
+      // 3) Agar district yo'q bo'lsa keyin city/town/village
+      if (!district) {
+        district =
+          firstNotEmpty(
+            city,
+            town,
+            village,
+            municipality
+          );
+      }
+
+      // 4) Region bo'sh bo'lsa fallback
       if (!region) {
-        region = cityLike;
+        region =
+          firstNotEmpty(
+            state,
+            regionField,
+            province,
+            county,
+            city,
+            town,
+            village,
+            municipality
+          );
       }
 
-      if (!district) {
-        district = cityLike || region;
-      }
-
-      if (!district) {
-        district = region;
-      }
-
+      // 5) Agar region hali ham yo'q bo'lsa districtdan olamiz
       if (!region) {
         region = district;
+      }
+
+      // 6) Agar district region bilan bir xil bo'lsa, alternativ qidiramiz
+      if (
+        district &&
+        region &&
+        district.toLowerCase() === region.toLowerCase()
+      ) {
+        const altDistrict =
+          firstNotEmpty(
+            cityDistrict,
+            districtField,
+            suburb,
+            borough,
+            county
+          );
+
+        if (
+          altDistrict &&
+          altDistrict.toLowerCase() !== region.toLowerCase()
+        ) {
+          district = altDistrict;
+        }
+      }
+
+      // 7) Hali ham district topilmasa
+      if (!district) {
+        district = region;
       }
 
       return {
@@ -286,8 +370,8 @@
         addr.state,
         addr.country
       ]
-      .map(cleanText)
-      .filter(Boolean);
+        .map(cleanText)
+        .filter(Boolean);
 
       const uniqueParts = [...new Set(parts)];
       return uniqueParts.length ? uniqueParts.join(", ") : cleanText(fallbackDisplayName || "");
@@ -371,6 +455,7 @@
 
         console.log("PAGE TYPE:", pageType);
         console.log("RAW ADDRESS:", addr);
+        console.log("PARSED:", parsed);
         console.log("SELECTED DATA:", selectedData);
 
         updateInfo(false);
