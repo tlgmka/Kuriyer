@@ -2,7 +2,10 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
   <title>Xaritadan tanlash</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -35,7 +38,7 @@
       left: 0;
       right: 0;
       padding: 14px 16px;
-      background: white;
+      background: #fff;
       border-bottom: 1px solid #eaeaea;
       z-index: 1200;
     }
@@ -71,6 +74,10 @@
       background: #fff;
     }
 
+    .search-input:focus {
+      border-color: #1f6bff;
+    }
+
     .search-btn {
       border: none;
       border-radius: 12px;
@@ -78,9 +85,14 @@
       font-size: 14px;
       font-weight: 700;
       background: #1f6bff;
-      color: white;
+      color: #fff;
       cursor: pointer;
       white-space: nowrap;
+    }
+
+    .search-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
     }
 
     .suggestions {
@@ -88,7 +100,7 @@
       top: calc(100% + 6px);
       left: 0;
       right: 0;
-      background: white;
+      background: #fff;
       border-radius: 14px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
       overflow: hidden;
@@ -104,6 +116,7 @@
       font-size: 14px;
       line-height: 1.35;
       cursor: pointer;
+      background: #fff;
     }
 
     .suggestion-item:last-child {
@@ -119,7 +132,7 @@
       top: 108px;
       left: 0;
       right: 0;
-      bottom: 168px;
+      bottom: 188px;
       overflow: hidden;
       background: #eee;
     }
@@ -166,6 +179,11 @@
       cursor: pointer;
     }
 
+    .gps-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
     .panel {
       position: fixed;
       left: 0;
@@ -173,7 +191,7 @@
       bottom: 0;
       z-index: 1250;
       padding: 14px;
-      background: white;
+      background: #fff;
       border-top-left-radius: 18px;
       border-top-right-radius: 18px;
       box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
@@ -186,8 +204,8 @@
     }
 
     .address-box {
-      min-height: 68px;
-      max-height: 96px;
+      min-height: 78px;
+      max-height: 110px;
       overflow-y: auto;
       background: #f7f7f7;
       border-radius: 12px;
@@ -247,7 +265,7 @@
           id="searchInput"
           class="search-input"
           type="text"
-          placeholder="Masalan: Chilonzor 19-kvartal"
+          placeholder="Masalan: Bulungur, Samarqand"
           autocomplete="off"
         />
         <button id="searchBtn" class="search-btn">Qidirish</button>
@@ -309,6 +327,50 @@
       centerPin.classList.add("bounce");
     }
 
+    function normalizeRegion(addr, displayName = "") {
+      const fullText = `
+        ${addr.state || ""}
+        ${addr.region || ""}
+        ${addr.county || ""}
+        ${addr.city || ""}
+        ${addr.town || ""}
+        ${addr.village || ""}
+        ${displayName || ""}
+      `.toLowerCase();
+
+      if (fullText.includes("toshkent")) return "Toshkent";
+      if (fullText.includes("samarkand") || fullText.includes("samarqand")) return "Samarqand";
+      if (fullText.includes("bukhara") || fullText.includes("buxoro")) return "Buxoro";
+      if (fullText.includes("andijan") || fullText.includes("andijon")) return "Andijon";
+      if (fullText.includes("namangan")) return "Namangan";
+      if (fullText.includes("fergana") || fullText.includes("farg")) return "Farg‘ona";
+      if (fullText.includes("kashkadarya") || fullText.includes("qashqadaryo")) return "Qashqadaryo";
+      if (fullText.includes("surkhandarya") || fullText.includes("surxondaryo")) return "Surxondaryo";
+      if (fullText.includes("jizzakh") || fullText.includes("jizzax")) return "Jizzax";
+      if (fullText.includes("sirdaryo") || fullText.includes("syrdarya")) return "Sirdaryo";
+      if (fullText.includes("navoi") || fullText.includes("navoiy")) return "Navoiy";
+      if (fullText.includes("khorezm") || fullText.includes("xorazm")) return "Xorazm";
+      if (
+        fullText.includes("karakalpak") ||
+        fullText.includes("qoraqalpoq") ||
+        fullText.includes("qoraqalpog")
+      ) return "Qoraqalpog‘iston";
+
+      return "Toshkent";
+    }
+
+    function normalizeDistrict(addr) {
+      return (
+        addr.city_district ||
+        addr.suburb ||
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.county ||
+        "Noma’lum tuman"
+      );
+    }
+
     function showSuggestions(items) {
       if (!items || !items.length) {
         suggestionsBox.style.display = "none";
@@ -348,21 +410,16 @@
         const data = await res.json();
 
         const addr = data.address || {};
-        const region =
-          addr.state ||
-          addr.region ||
-          addr.county ||
-          addr.city ||
-          addr.town ||
-          "Toshkent";
-
         const address = data.display_name || `${lat}, ${lon}`;
+        const region = normalizeRegion(addr, address);
+        const district = normalizeDistrict(addr);
 
-        return { address, region };
+        return { address, region, district };
       } catch (e) {
         return {
           address: `${lat}, ${lon}`,
-          region: "Toshkent"
+          region: "Toshkent",
+          district: "Noma’lum tuman"
         };
       }
     }
@@ -398,12 +455,14 @@
         lon: lon,
         address: geo.address,
         region: geo.region,
+        district: geo.district,
         type: type
       };
 
       addressBox.innerHTML = `
         <b>Adres:</b><br>${geo.address}<br><br>
-        <b>Hudud:</b> ${geo.region}
+        <b>Viloyat:</b> ${geo.region}<br>
+        <b>Tuman/Shahar:</b> ${geo.district}
       `;
 
       sendBtn.disabled = false;
@@ -543,20 +602,13 @@
       tg.close();
     });
 
-    moveToCurrentLocation();
-
-    setTimeout(() => {
-      if (!selected) {
-        scheduleCenterUpdate();
-      }
-    }, 1200);
-
-    function updateMapTop() {
+    function updateMapBounds() {
       const topbar = document.querySelector(".topbar");
       const panel = document.querySelector(".panel");
+      const mapWrap = document.querySelector(".map-wrap");
+
       const topHeight = topbar.offsetHeight;
       const bottomHeight = panel.offsetHeight;
-      const mapWrap = document.querySelector(".map-wrap");
 
       mapWrap.style.top = `${topHeight}px`;
       mapWrap.style.bottom = `${bottomHeight}px`;
@@ -566,9 +618,18 @@
       }, 100);
     }
 
-    window.addEventListener("resize", updateMapTop);
-    setTimeout(updateMapTop, 150);
-    setTimeout(updateMapTop, 500);
+    window.addEventListener("resize", updateMapBounds);
+
+    moveToCurrentLocation();
+
+    setTimeout(() => {
+      if (!selected) {
+        scheduleCenterUpdate();
+      }
+    }, 1200);
+
+    setTimeout(updateMapBounds, 150);
+    setTimeout(updateMapBounds, 500);
   </script>
 </body>
 </html>
