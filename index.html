@@ -339,22 +339,22 @@
         ${displayName || ""}
       `.toLowerCase();
 
-      const cityDistricts = [
+      const toshkentShahriDistricts = [
         "bektemir", "chilonzor", "mirobod", "mirzo ulug", "olmazor",
         "sergeli", "shayxontohur", "uchtepa", "yakkasaroy", "yunusobod",
         "yashnobod", "yangihayot"
       ];
 
-      const regionDistricts = [
-        "bekobod", "bo‘ka", "buka", "chinoz", "qibray", "ohangaron",
-        "oqqo‘rg‘on", "oqqorgon", "parkent", "piskent", "quyichirchiq",
-        "o‘rtachirchiq", "urtachirchiq", "yuqorichirchiq", "zangiota",
+      const toshkentViloyatiDistricts = [
+        "bekobod", "bo'ka", "buka", "chinoz", "qibray", "ohangaron",
+        "oqqo'rg'on", "oqqorgon", "parkent", "piskent", "quyichirchiq",
+        "o'rtachirchiq", "urtachirchiq", "yuqorichirchiq", "zangiota",
         "toshkent tumani", "angren", "olmaliq", "almalyk", "chirchiq",
-        "nurafshon", "yangiyo‘l", "yangiyol"
+        "nurafshon", "yangiyo'l", "yangiyol", "ohangaron shahri"
       ];
 
-      if (cityDistricts.some(d => fullText.includes(d))) return "Toshkent shahri";
-      if (regionDistricts.some(d => fullText.includes(d))) return "Toshkent viloyati";
+      if (toshkentShahriDistricts.some(d => fullText.includes(d))) return "Toshkent shahri";
+      if (toshkentViloyatiDistricts.some(d => fullText.includes(d))) return "Toshkent viloyati";
 
       if (fullText.includes("samarkand") || fullText.includes("samarqand")) return "Samarqand";
       if (fullText.includes("bukhara") || fullText.includes("buxoro")) return "Buxoro";
@@ -377,15 +377,16 @@
     }
 
     function normalizeDistrict(addr) {
-      return (
+      const value =
         addr.city_district ||
         addr.suburb ||
         addr.city ||
         addr.town ||
         addr.village ||
         addr.county ||
-        "Noma’lum tuman"
-      );
+        "Noma’lum tuman";
+
+      return String(value).trim();
     }
 
     function showSuggestions(items) {
