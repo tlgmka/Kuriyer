@@ -42,9 +42,54 @@
       color: #666;
     }
 
+    .map-wrap {
+      position: relative;
+      width: 100%;
+      height: 58vh;
+      overflow: hidden;
+    }
+
     #map {
       width: 100%;
-      height: 55vh;
+      height: 100%;
+    }
+
+    /* Markazdagi pin */
+    .center-pin {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -100%);
+      z-index: 900;
+      pointer-events: none;
+      font-size: 34px;
+      line-height: 1;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+    }
+
+    .center-pin.bounce {
+      animation: pinBounce 0.25s ease;
+    }
+
+    @keyframes pinBounce {
+      0% { transform: translate(-50%, -100%); }
+      50% { transform: translate(-50%, -108%); }
+      100% { transform: translate(-50%, -100%); }
+    }
+
+    .gps-btn {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 950;
+      background: white;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+      cursor: pointer;
     }
 
     .panel {
@@ -55,7 +100,7 @@
       margin-top: -10px;
       position: relative;
       z-index: 500;
-      box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
     }
 
     .label {
@@ -65,12 +110,12 @@
     }
 
     .address-box {
-      min-height: 68px;
+      min-height: 72px;
       background: #f7f7f7;
       border-radius: 12px;
       padding: 12px;
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.45;
       margin-bottom: 12px;
     }
 
@@ -101,7 +146,10 @@
       text-align: center;
     }
 
-    /* Leaflet zoom tugmasi chiroyliroq */
+    .leaflet-control-attribution {
+      display: none !important;
+    }
+
     .leaflet-control-zoom a {
       width: 34px !important;
       height: 34px !important;
@@ -113,16 +161,20 @@
 <body>
   <div class="topbar">
     <div class="title">📍 Lokatsiyani tanlang</div>
-    <div class="subtitle">Xaritaga bosib aniq joyni belgilang</div>
+    <div class="subtitle">Xaritani suring, markazdagi belgi joyni tanlaydi</div>
   </div>
 
-  <div id="map"></div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div id="centerPin" class="center-pin">📍</div>
+    <button id="myLocationBtn" class="gps-btn">📍 Mening joylashuvim</button>
+  </div>
 
   <div class="panel">
     <div class="label">Tanlangan manzil</div>
-    <div id="address" class="address-box">Hali joy tanlanmagan</div>
+    <div id="address" class="address-box">Joylashuv aniqlanmoqda...</div>
     <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash va yuborish</button>
-    <div class="hint">Avval xaritadan nuqta tanlang</div>
+    <div class="hint">Joyni tanlash uchun xaritani harakatlantiring</div>
   </div>
 
   <script>
@@ -132,20 +184,32 @@
     const params = new URLSearchParams(window.location.search);
     const type = params.get("type") || "from";
 
+    const defaultLat = 41.3111;
+    const defaultLon = 69.2797;
+
     let selected = null;
-    let marker = null;
+    let geocodeTimer = null;
+    let requestCounter = 0;
+
+    const addressBox = document.getElementById("address");
+    const sendBtn = document.getElementById("sendBtn");
+    const myLocationBtn = document.getElementById("myLocationBtn");
+    const centerPin = document.getElementById("centerPin");
 
     const map = L.map("map", {
       zoomControl: true,
       attributionControl: false
-    }).setView([41.3111, 69.2797], 12);
+    }).setView([defaultLat, defaultLon], 12);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19
     }).addTo(map);
 
-    const addressBox = document.getElementById("address");
-    const sendBtn = document.getElementById("sendBtn");
+    function bouncePin() {
+      centerPin.classList.remove("bounce");
+      void centerPin.offsetWidth;
+      centerPin.classList.add("bounce");
+    }
 
     async function reverseGeocode(lat, lon) {
       try {
@@ -160,11 +224,10 @@
           addr.region ||
           addr.county ||
           addr.city ||
+          addr.town ||
           "Toshkent";
 
-        const address =
-          data.display_name ||
-          `${lat}, ${lon}`;
+        const address = data.display_name || `${lat}, ${lon}`;
 
         return { address, region };
       } catch (e) {
@@ -175,23 +238,23 @@
       }
     }
 
-    map.on("click", async function (e) {
-      const { lat, lng } = e.latlng;
+    async function updateSelectedFromCenter() {
+      const center = map.getCenter();
+      const lat = Number(center.lat.toFixed(7));
+      const lon = Number(center.lng.toFixed(7));
 
-      if (marker) {
-        map.removeLayer(marker);
-      }
-
-      marker = L.marker([lat, lng]).addTo(map);
+      const currentRequest = ++requestCounter;
 
       addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
       sendBtn.disabled = true;
 
-      const geo = await reverseGeocode(lat, lng);
+      const geo = await reverseGeocode(lat, lon);
+
+      if (currentRequest !== requestCounter) return;
 
       selected = {
         lat: lat,
-        lon: lng,
+        lon: lon,
         address: geo.address,
         region: geo.region,
         type: type
@@ -203,13 +266,79 @@
       `;
 
       sendBtn.disabled = false;
+    }
+
+    function scheduleCenterUpdate() {
+      if (geocodeTimer) clearTimeout(geocodeTimer);
+      geocodeTimer = setTimeout(() => {
+        updateSelectedFromCenter();
+      }, 450);
+    }
+
+    function moveToCurrentLocation() {
+      if (!navigator.geolocation) {
+        addressBox.innerHTML = "Geolokatsiya ishlamaydi. Xarita orqali joy tanlang.";
+        return;
+      }
+
+      myLocationBtn.disabled = true;
+      myLocationBtn.textContent = "⏳ Aniqlanmoqda...";
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+
+          map.setView([lat, lon], 17, { animate: true });
+          bouncePin();
+
+          myLocationBtn.disabled = false;
+          myLocationBtn.textContent = "📍 Mening joylashuvim";
+
+          scheduleCenterUpdate();
+        },
+        () => {
+          myLocationBtn.disabled = false;
+          myLocationBtn.textContent = "📍 Mening joylashuvim";
+          addressBox.innerHTML = "Joylashuv olinmadi. Xarita orqali joy tanlang.";
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    map.on("movestart", () => {
+      sendBtn.disabled = true;
+      addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
     });
 
-    sendBtn.addEventListener("click", function () {
+    map.on("moveend", () => {
+      bouncePin();
+      scheduleCenterUpdate();
+    });
+
+    myLocationBtn.addEventListener("click", () => {
+      moveToCurrentLocation();
+    });
+
+    sendBtn.addEventListener("click", () => {
       if (!selected) return;
       tg.sendData(JSON.stringify(selected));
       tg.close();
     });
+
+    // Boshlang'ich yuklanishda foydalanuvchi joyiga olib boradi
+    moveToCurrentLocation();
+
+    // Agar geolokatsiya ishlamasa ham default markaz uchun manzil chiqarib qo'yadi
+    setTimeout(() => {
+      if (!selected) {
+        scheduleCenterUpdate();
+      }
+    }, 1200);
   </script>
 </body>
 </html>
