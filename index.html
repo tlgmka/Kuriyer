@@ -120,7 +120,7 @@
 
     .address-box {
       min-height: 92px;
-      max-height: 160px;
+      max-height: 180px;
       overflow-y: auto;
       background: #f7f7f7;
       border-radius: 12px;
@@ -165,12 +165,7 @@
       font-size: 18px !important;
     }
 
-    .loading {
-      color: #666;
-      padding: 12px 14px;
-      font-size: 14px;
-    }
-
+    .loading,
     .empty {
       color: #666;
       padding: 12px 14px;
@@ -230,18 +225,82 @@
       maxZoom: 19
     }).addTo(map);
 
-    function cleanName(value = "") {
+    const TASHKENT_CITY_DISTRICTS = [
+      "bektemir",
+      "chilonzor",
+      "mirobod",
+      "mirabad",
+      "mirzo ulug'bek",
+      "mirzo ulugbek",
+      "olmazor",
+      "sergeli",
+      "shayxontohur",
+      "shaykhantahur",
+      "uchtepa",
+      "yakkasaroy",
+      "yashnobod",
+      "yunusobod",
+      "yangi hayot"
+    ];
+
+    function titleCaseUz(str = "") {
+      return str
+        .split(" ")
+        .filter(Boolean)
+        .map(word => {
+          return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
+        .join(" ");
+    }
+
+    function normalizeText(value = "") {
       return String(value)
+        .toLowerCase()
+        .replace(/oʻ/g, "o'")
+        .replace(/gʻ/g, "g'")
+        .replace(/’/g, "'")
+        .replace(/`/g, "'")
         .replace(/\s+/g, " ")
-        .replace(/\b(district|District)\b/g, "")
-        .replace(/\b(tumani|tumani\.)\b/gi, "")
-        .replace(/\b(rayoni|rayon)\b/gi, "")
-        .replace(/\s{2,}/g, " ")
         .trim();
     }
 
+    function cleanName(value = "") {
+      return String(value)
+        .replace(/\b(district)\b/gi, "")
+        .replace(/\b(tumani|tumani\.)\b/gi, "")
+        .replace(/\b(rayoni|rayon)\b/gi, "")
+        .replace(/\b(shahri)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .replace(/,+/g, "")
+        .trim();
+    }
+
+    function prettifyDistrictName(value = "") {
+      const v = normalizeText(cleanName(value));
+
+      const map = {
+        "mirabad": "Mirabad",
+        "mirobod": "Mirobod",
+        "shaykhantahur": "Shayxontohur",
+        "shayxontohur": "Shayxontohur",
+        "mirzo ulugbek": "Mirzo Ulug‘bek",
+        "mirzo ulug'bek": "Mirzo Ulug‘bek",
+        "yangi hayot": "Yangi hayot",
+        "chilonzor": "Chilonzor",
+        "sergeli": "Sergeli",
+        "olmazor": "Olmazor",
+        "uchtepa": "Uchtepa",
+        "yakkasaroy": "Yakkasaroy",
+        "yashnobod": "Yashnobod",
+        "yunusobod": "Yunusobod",
+        "bektemir": "Bektemir"
+      };
+
+      return map[v] || titleCaseUz(cleanName(value));
+    }
+
     function normalizeUzbekRegion(value = "") {
-      const v = String(value).toLowerCase().trim();
+      const v = normalizeText(value);
 
       if (!v) return "";
 
@@ -262,50 +321,142 @@
       if (v.includes("xorazm")) return "Xorazm viloyati";
       if (v.includes("qoraqalpog")) return "Qoraqalpog‘iston Respublikasi";
 
-      return value;
+      return titleCaseUz(value);
     }
 
-    function extractRegionDistrict(addr = {}) {
-      const isTashkentCity =
-        String(addr.city || "").toLowerCase() === "toshkent" ||
-        String(addr.town || "").toLowerCase() === "toshkent" ||
-        String(addr.municipality || "").toLowerCase() === "toshkent" ||
-        String(addr.state || "").toLowerCase().includes("toshkent shah") ||
-        String(addr.region || "").toLowerCase().includes("toshkent shah");
+    function looksLikeTashkentCity(addr = {}, displayName = "") {
+      const values = [
+        addr.city,
+        addr.town,
+        addr.municipality,
+        addr.state,
+        addr.region,
+        displayName
+      ]
+        .filter(Boolean)
+        .map(normalizeText)
+        .join(" | ");
+
+      return values.includes("toshkent")
+        || values.includes("tashkent")
+        || values.includes("toshkent shahri")
+        || values.includes("tashkent city");
+    }
+
+    function extractDistrictFromDisplayName(displayName = "") {
+      const text = normalizeText(displayName);
+
+      const patterns = [
+        /([a-zʻ'`-]+(?:\s+[a-zʻ'`-]+)*)\s+tumani/g,
+        /([a-zʻ'`-]+(?:\s+[a-zʻ'`-]+)*)\s+district/g
+      ];
+
+      for (const pattern of patterns) {
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+          const found = cleanName(match[1]);
+          const normalizedFound = normalizeText(found);
+
+          for (const known of TASHKENT_CITY_DISTRICTS) {
+            if (normalizedFound === normalizeText(known)) {
+              return prettifyDistrictName(found);
+            }
+          }
+
+          if (found) {
+            return prettifyDistrictName(found);
+          }
+        }
+      }
+
+      for (const known of TASHKENT_CITY_DISTRICTS) {
+        if (text.includes(normalizeText(known) + " tumani")) {
+          return prettifyDistrictName(known);
+        }
+        if (text.includes(normalizeText(known) + " district")) {
+          return prettifyDistrictName(known);
+        }
+      }
+
+      return "";
+    }
+
+    function pickBestDistrict(addr = {}, displayName = "", isTashkentCity = false) {
+      const strongCandidates = [
+        addr.city_district,
+        addr.state_district,
+        addr.district,
+        addr.county,
+        addr.borough
+      ];
+
+      for (const item of strongCandidates) {
+        const cleaned = cleanName(item || "");
+        if (!cleaned) continue;
+
+        const normalized = normalizeText(cleaned);
+
+        if (isTashkentCity) {
+          for (const known of TASHKENT_CITY_DISTRICTS) {
+            if (normalized === normalizeText(known)) {
+              return prettifyDistrictName(cleaned);
+            }
+          }
+        } else {
+          if (normalized !== "toshkent" && normalized !== "uzbekiston" && normalized !== "o'zbekiston") {
+            return titleCaseUz(cleaned);
+          }
+        }
+      }
+
+      const fromDisplay = extractDistrictFromDisplayName(displayName);
+      if (fromDisplay) return fromDisplay;
+
+      const mediumCandidates = [
+        addr.suburb,
+        addr.quarter,
+        addr.neighbourhood,
+        addr.residential,
+        addr.village,
+        addr.town,
+        addr.city,
+        addr.municipality
+      ];
+
+      for (const item of mediumCandidates) {
+        const cleaned = cleanName(item || "");
+        if (!cleaned) continue;
+
+        const normalized = normalizeText(cleaned);
+
+        if (isTashkentCity) {
+          for (const known of TASHKENT_CITY_DISTRICTS) {
+            if (normalized === normalizeText(known)) {
+              return prettifyDistrictName(cleaned);
+            }
+          }
+        } else {
+          if (normalized !== "toshkent" && normalized !== "uzbekiston" && normalized !== "o'zbekiston") {
+            return titleCaseUz(cleaned);
+          }
+        }
+      }
+
+      return "";
+    }
+
+    function extractRegionDistrict(addr = {}, displayName = "") {
+      const isTashkentCity = looksLikeTashkentCity(addr, displayName);
 
       let region = "";
       let district = "";
 
       if (isTashkentCity) {
         region = "Toshkent shahri";
+        district = pickBestDistrict(addr, displayName, true);
 
-        district =
-          cleanName(addr.city_district) ||
-          cleanName(addr.state_district) ||
-          cleanName(addr.borough) ||
-          cleanName(addr.county) ||
-          cleanName(addr.district) ||
-          cleanName(addr.municipality) ||
-          cleanName(addr.suburb) ||
-          cleanName(addr.quarter) ||
-          "Toshkent";
-
-        const d = district.toLowerCase();
-
-        if (
-          d === "toshkent" ||
-          d === "ташкент" ||
-          d === "uzbekistan" ||
-          d === "o‘zbekiston"
-        ) {
-          district =
-            cleanName(addr.city_district) ||
-            cleanName(addr.state_district) ||
-            cleanName(addr.borough) ||
-            cleanName(addr.county) ||
-            cleanName(addr.district) ||
-            cleanName(addr.suburb) ||
-            "Toshkent";
+        if (!district) {
+          district = "Toshkent";
         }
 
         return { region, district };
@@ -320,18 +471,7 @@
         ""
       );
 
-      district =
-        cleanName(addr.city_district) ||
-        cleanName(addr.state_district) ||
-        cleanName(addr.county) ||
-        cleanName(addr.district) ||
-        cleanName(addr.city) ||
-        cleanName(addr.town) ||
-        cleanName(addr.village) ||
-        cleanName(addr.municipality) ||
-        cleanName(addr.suburb) ||
-        cleanName(addr.quarter) ||
-        "";
+      district = pickBestDistrict(addr, displayName, false);
 
       if (!district) {
         district = region
@@ -352,7 +492,7 @@
         const data = await res.json();
 
         const addr = data.address || {};
-        const parsed = extractRegionDistrict(addr);
+        const parsed = extractRegionDistrict(addr, data.display_name || "");
 
         return {
           address: data.display_name || `${lat}, ${lon}`,
