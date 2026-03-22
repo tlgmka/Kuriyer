@@ -1,478 +1,128 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Xaritadan tanlash</title>
+<script>
+  const tg = window.Telegram.WebApp;
+  tg.expand();
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  const params = new URLSearchParams(window.location.search);
+  const type = params.get("type") || "from";
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
+  let selected = null;
+  let marker = null;
 
-    body {
-      background: #f5f7fb;
-      color: #111;
-    }
+  const map = L.map("map", {
+    zoomControl: true,
+    attributionControl: false
+  }).setView([41.3111, 69.2797], 12);
 
-    .topbar {
-      padding: 14px 16px;
-      background: white;
-      border-bottom: 1px solid #eaeaea;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19
+  }).addTo(map);
 
-    .title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
+  const addressBox = document.getElementById("address");
+  const sendBtn = document.getElementById("sendBtn");
 
-    .subtitle {
-      font-size: 13px;
-      color: #666;
-    }
+  async function reverseGeocode(lat, lon) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=uz`
+      );
+      const data = await res.json();
 
-    #map {
-      width: 100%;
-      height: 55vh;
-    }
-
-    .panel {
-      padding: 14px;
-      background: white;
-      border-top-left-radius: 18px;
-      border-top-right-radius: 18px;
-      margin-top: -10px;
-      position: relative;
-      z-index: 500;
-      box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-    }
-
-    .label {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 6px;
-    }
-
-    .address-box {
-      min-height: 88px;
-      max-height: 180px;
-      overflow-y: auto;
-      background: #f7f7f7;
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 14px;
-      line-height: 1.45;
-      margin-bottom: 12px;
-      word-break: break-word;
-    }
-
-    .btn {
-      width: 100%;
-      border: none;
-      border-radius: 14px;
-      padding: 12px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .btn-primary {
-      background: #1f6bff;
-      color: white;
-    }
-
-    .btn-primary:disabled {
-      background: #9ab8ff;
-      cursor: not-allowed;
-    }
-
-    .hint {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #777;
-      text-align: center;
-    }
-
-    .leaflet-control-zoom a {
-      width: 34px !important;
-      height: 34px !important;
-      line-height: 34px !important;
-      font-size: 18px !important;
-    }
-  </style>
-</head>
-<body>
-  <div class="topbar">
-    <div class="title">📍 Lokatsiyani tanlang</div>
-    <div class="subtitle">Xaritaga bosib aniq joyni belgilang</div>
-  </div>
-
-  <div id="map"></div>
-
-  <div class="panel">
-    <div class="label">Tanlangan manzil</div>
-    <div id="address" class="address-box">Hali joy tanlanmagan</div>
-    <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash</button>
-    <div class="hint">Avval xaritadan nuqta tanlang</div>
-  </div>
-
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    const params = new URLSearchParams(window.location.search);
-    const type = params.get("type") || "from";
-
-    let selected = null;
-    let marker = null;
-
-    const map = L.map("map", {
-      zoomControl: true,
-      attributionControl: false
-    }).setView([41.3111, 69.2797], 12);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19
-    }).addTo(map);
-
-    const addressBox = document.getElementById("address");
-    const sendBtn = document.getElementById("sendBtn");
-
-    const TASHKENT_CITY_DISTRICTS = [
-      "bektemir",
-      "chilonzor",
-      "mirobod",
-      "mirabad",
-      "mirzo ulug'bek",
-      "mirzo ulugbek",
-      "olmazor",
-      "sergeli",
-      "shayxontohur",
-      "shaykhantahur",
-      "uchtepa",
-      "yakkasaroy",
-      "yashnobod",
-      "yunusobod",
-      "yangi hayot"
-    ];
-
-    function normalizeText(value = "") {
-      return String(value)
-        .toLowerCase()
-        .replace(/oʻ/g, "o'")
-        .replace(/gʻ/g, "g'")
-        .replace(/’/g, "'")
-        .replace(/`/g, "'")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    function titleCaseUz(str = "") {
-      return str
-        .split(" ")
-        .filter(Boolean)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ");
-    }
-
-    function cleanName(value = "") {
-      return String(value)
-        .replace(/\b(district)\b/gi, "")
-        .replace(/\b(tumani|tumani\.)\b/gi, "")
-        .replace(/\b(rayoni|rayon)\b/gi, "")
-        .replace(/\b(shahri)\b/gi, "")
-        .replace(/\b(mahallasi|mahalla)\b/gi, "")
-        .replace(/\b(qfy|qishlog'i|qishlogi)\b/gi, "")
-        .replace(/\s+/g, " ")
-        .replace(/,+/g, "")
-        .trim();
-    }
-
-    function isCodeLikePlace(value = "") {
-      const v = normalizeText(cleanName(value));
-      if (!v) return true;
-
-      return /^s\d+$/i.test(v) ||
-             /^[a-z]\d+$/i.test(v) ||
-             /^\d+$/.test(v);
-    }
-
-    function isMahallaLike(value = "") {
-      const raw = normalizeText(value);
-      return raw.includes("mahalla") || raw.includes("mahallasi");
-    }
-
-    function prettifyDistrictName(value = "") {
-      const v = normalizeText(cleanName(value));
-
-      const mapNames = {
-        "mirabad": "Mirabad",
-        "mirobod": "Mirobod",
-        "shaykhantahur": "Shayxontohur",
-        "shayxontohur": "Shayxontohur",
-        "mirzo ulugbek": "Mirzo Ulug‘bek",
-        "mirzo ulug'bek": "Mirzo Ulug‘bek",
-        "yangi hayot": "Yangi hayot",
-        "chilonzor": "Chilonzor",
-        "sergeli": "Sergeli",
-        "olmazor": "Olmazor",
-        "uchtepa": "Uchtepa",
-        "yakkasaroy": "Yakkasaroy",
-        "yashnobod": "Yashnobod",
-        "yunusobod": "Yunusobod",
-        "bektemir": "Bektemir"
-      };
-
-      return mapNames[v] || titleCaseUz(cleanName(value));
-    }
-
-    function normalizeUzbekRegion(value = "") {
-      const v = normalizeText(value);
-
-      if (!v) return "";
-
-      if (v.includes("toshkent shah") || v === "toshkent city" || v === "tashkent city") {
-        return "Toshkent shahri";
-      }
-      if (v.includes("toshkent")) return "Toshkent viloyati";
-      if (v.includes("samarqand")) return "Samarqand viloyati";
-      if (v.includes("buxoro")) return "Buxoro viloyati";
-      if (v.includes("andijon")) return "Andijon viloyati";
-      if (v.includes("farg")) return "Farg‘ona viloyati";
-      if (v.includes("namangan")) return "Namangan viloyati";
-      if (v.includes("jizzax")) return "Jizzax viloyati";
-      if (v.includes("sirdaryo")) return "Sirdaryo viloyati";
-      if (v.includes("qashqadaryo")) return "Qashqadaryo viloyati";
-      if (v.includes("surxondaryo")) return "Surxondaryo viloyati";
-      if (v.includes("navoiy")) return "Navoiy viloyati";
-      if (v.includes("xorazm")) return "Xorazm viloyati";
-      if (v.includes("qoraqalpog")) return "Qoraqalpog‘iston Respublikasi";
-
-      return titleCaseUz(value);
-    }
-
-    function looksLikeTashkentCity(addr = {}, displayName = "") {
-      const values = [
-        addr.city,
-        addr.town,
-        addr.municipality,
-        addr.state,
-        addr.region,
-        displayName
-      ]
-        .filter(Boolean)
-        .map(normalizeText)
-        .join(" | ");
-
-      return values.includes("toshkent")
-        || values.includes("tashkent")
-        || values.includes("toshkent shahri")
-        || values.includes("tashkent city");
-    }
-
-    function extractDistrictFromDisplayName(displayName = "") {
-      const text = normalizeText(displayName);
-
-      const patterns = [
-        /([a-zʻ'`-]+(?:\s+[a-zʻ'`-]+)*)\s+tumani/g,
-        /([a-zʻ'`-]+(?:\s+[a-zʻ'`-]+)*)\s+district/g
-      ];
-
-      for (const pattern of patterns) {
-        let match;
-        while ((match = pattern.exec(text)) !== null) {
-          const found = cleanName(match[1]);
-          if (!found || isCodeLikePlace(found)) continue;
-          return prettifyDistrictName(found);
-        }
-      }
-
-      for (const known of TASHKENT_CITY_DISTRICTS) {
-        if (text.includes(normalizeText(known) + " tumani")) {
-          return prettifyDistrictName(known);
-        }
-        if (text.includes(normalizeText(known) + " district")) {
-          return prettifyDistrictName(known);
-        }
-      }
-
-      return "";
-    }
-
-    function validDistrictCandidate(value = "") {
-      const raw = String(value || "").trim();
-      const cleaned = cleanName(raw);
-      const normalized = normalizeText(cleaned);
-
-      if (!cleaned) return false;
-      if (normalized === "toshkent") return false;
-      if (normalized === "uzbekiston") return false;
-      if (normalized === "o'zbekiston") return false;
-      if (isCodeLikePlace(cleaned)) return false;
-      if (isMahallaLike(raw)) return false;
-
-      return true;
-    }
-
-    function pickBestDistrict(addr = {}, displayName = "", isTashkentCity = false, region = "") {
-      const strongCandidates = [
-        addr.city_district,
-        addr.state_district,
-        addr.district,
-        addr.county,
-        addr.borough
-      ];
-
-      for (const item of strongCandidates) {
-        if (!validDistrictCandidate(item)) continue;
-
-        const cleaned = cleanName(item);
-        const normalized = normalizeText(cleaned);
-
-        if (isTashkentCity) {
-          for (const known of TASHKENT_CITY_DISTRICTS) {
-            if (normalized === normalizeText(known)) {
-              return prettifyDistrictName(cleaned);
-            }
-          }
-        } else {
-          return titleCaseUz(cleaned);
-        }
-      }
-
-      const fromDisplay = extractDistrictFromDisplayName(displayName);
-      if (fromDisplay && validDistrictCandidate(fromDisplay)) {
-        return fromDisplay;
-      }
-
-      const fallbackCandidates = [
-        addr.city,
-        addr.town,
-        addr.village,
-        addr.municipality,
-        addr.suburb
-      ];
-
-      for (const item of fallbackCandidates) {
-        if (!validDistrictCandidate(item)) continue;
-        return titleCaseUz(cleanName(item));
-      }
-
-      const regionNorm = normalizeText(region);
-      if (regionNorm.includes("jizzax")) return "Jizzax";
-
-      return "";
-    }
-
-    function extractRegionDistrict(addr = {}, displayName = "") {
-      const isTashkentCity = looksLikeTashkentCity(addr, displayName);
-
-      let region = "";
-      let district = "";
-
-      if (isTashkentCity) {
-        region = "Toshkent shahri";
-        district = pickBestDistrict(addr, displayName, true, region) || "Toshkent";
-        return { region, district };
-      }
-
-      region = normalizeUzbekRegion(
-        addr.state ||
-        addr.region ||
-        addr.province ||
+      const addr = data.address || {};
+      const region = addr.state || addr.region || addr.county || addr.city || "Toshkent";
+      const district =
+        addr.city_district ||
+        addr.state_district ||
+        addr.district ||
         addr.county ||
         addr.city ||
-        ""
-      );
-
-      district = pickBestDistrict(addr, displayName, false, region);
-
-      if (!district || isCodeLikePlace(district)) {
-        district = region
-          .replace(" viloyati", "")
-          .replace(" shahri", "")
-          .replace(" Respublikasi", "")
-          .trim();
-      }
+        addr.town ||
+        "Toshkent";
 
       return {
+        address: data.display_name || `${lat}, ${lon}`,
         region,
-        district: titleCaseUz(district)
+        district
+      };
+    } catch (e) {
+      return {
+        address: `${lat}, ${lon}`,
+        region: "Toshkent",
+        district: "Toshkent"
       };
     }
+  }
 
-    async function reverseGeocode(lat, lon) {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=uz`
-        );
-        const data = await res.json();
-
-        const addr = data.address || {};
-        const parsed = extractRegionDistrict(addr, data.display_name || "");
-
-        return {
-          address: data.display_name || `${lat}, ${lon}`,
-          region: parsed.region || "Toshkent",
-          district: parsed.district || "Toshkent"
-        };
-      } catch (e) {
-        return {
-          address: `${lat}, ${lon}`,
-          region: "Toshkent",
-          district: "Toshkent"
-        };
-      }
+  async function setLocation(lat, lon, moveMap = true) {
+    if (marker) {
+      map.removeLayer(marker);
     }
 
-    map.on("click", async function (e) {
-      const { lat, lng } = e.latlng;
+    marker = L.marker([lat, lon]).addTo(map);
 
-      if (marker) {
-        map.removeLayer(marker);
+    if (moveMap) {
+      map.setView([lat, lon], 16);
+    }
+
+    addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
+    sendBtn.disabled = true;
+
+    const geo = await reverseGeocode(lat, lon);
+
+    selected = {
+      lat: lat,
+      lon: lon,
+      address: geo.address,
+      region: geo.region,
+      district: geo.district,
+      type: type
+    };
+
+    addressBox.innerHTML = `
+      <b>Adres:</b><br>${geo.address}<br><br>
+      <b>Viloyat:</b> ${geo.region}<br>
+      <b>Tuman/Shahar:</b> ${geo.district}
+    `;
+
+    sendBtn.disabled = false;
+  }
+
+  function loadCurrentLocation() {
+    if (!navigator.geolocation) {
+      addressBox.innerHTML = "Geolokatsiya bu qurilmada ishlamaydi";
+      return;
+    }
+
+    addressBox.innerHTML = "⏳ Turgan joy aniqlanmoqda...";
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        await setLocation(lat, lon, true);
+      },
+      () => {
+        addressBox.innerHTML = "Joylashuvga ruxsat berilmadi. Xaritada nuqta tanlang.";
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       }
+    );
+  }
 
-      marker = L.marker([lat, lng]).addTo(map);
+  map.on("click", async function (e) {
+    const { lat, lng } = e.latlng;
+    await setLocation(lat, lng, false);
+  });
 
-      addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
-      sendBtn.disabled = true;
+  sendBtn.addEventListener("click", function () {
+    if (!selected) return;
+    tg.sendData(JSON.stringify(selected));
+    tg.close();
+  });
 
-      const geo = await reverseGeocode(lat, lng);
-
-      selected = {
-        lat: lat,
-        lon: lng,
-        address: geo.address,
-        region: geo.region,
-        district: geo.district,
-        type: type
-      };
-
-      addressBox.innerHTML = `
-        <b>Adres:</b><br>${geo.address}<br><br>
-        <b>Viloyat:</b> ${geo.region}<br>
-        <b>Tuman/Shahar:</b> ${geo.district}
-      `;
-
-      sendBtn.disabled = false;
-    });
-
-    sendBtn.addEventListener("click", function () {
-      if (!selected) return;
-      tg.sendData(JSON.stringify(selected));
-      tg.close();
-    });
-  </script>
-</body>
-</html>
+  window.addEventListener("load", function () {
+    loadCurrentLocation();
+  });
+</script>
