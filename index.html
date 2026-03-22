@@ -110,6 +110,16 @@
       color: #2a8cff;
       font-weight: 700;
     }
+
+    .debug {
+      font-size: 12px;
+      color: #444;
+      white-space: pre-wrap;
+      background: #f0f0f0;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -142,6 +152,8 @@
         <span class="label">Koordinata:</span>
         <span id="coords_text">Tanlanmagan</span>
       </div>
+
+      <div id="debugBox" class="debug" style="display:none;"></div>
     </div>
 
     <button id="sendBtn" class="btn" disabled>Tanlangan manzilni yuborish</button>
@@ -152,7 +164,7 @@
     tg.expand();
 
     const params = new URLSearchParams(window.location.search);
-    const pageType = (params.get("type") || "from").toLowerCase(); // from | to
+    const pageType = (params.get("type") || "from").toLowerCase();
 
     let map;
     let marker = null;
@@ -237,10 +249,19 @@
 
     function firstNotEmpty(...values) {
       for (const value of values) {
-        const cleaned = cleanText(value);
-        if (cleaned) return cleaned;
+        const v = cleanText(value);
+        if (v) return v;
       }
       return "";
+    }
+
+    function isSamePlace(a, b) {
+      return cleanText(a).toLowerCase() === cleanText(b).toLowerCase();
+    }
+
+    function looksLikeTashkent(value) {
+      const v = cleanText(value).toLowerCase();
+      return v === "toshkent" || v === "tashkent" || v === "toshkent shahri" || v === "tashkent city";
     }
 
     function parseAddressData(addr) {
@@ -258,55 +279,75 @@
       const districtField = normalizeName(addr.district);
       const suburb = normalizeName(addr.suburb);
       const borough = normalizeName(addr.borough);
-
-      let region = "";
-      let district = "";
+      const neighbourhood = normalizeName(addr.neighbourhood);
 
       const allText = [
         state, regionField, province, county,
         city, town, village, municipality,
-        cityDistrict, districtField, suburb, borough
+        cityDistrict, districtField, suburb, borough, neighbourhood
       ].join(" ").toLowerCase();
 
-      // 1) Regionni aniqlash
-      if (
+      const isTashkentCity =
         allText.includes("toshkent shahri") ||
-        allText.includes("tashkent city")
-      ) {
-        region = "Toshkent shahri";
-      } else {
-        region =
-          firstNotEmpty(
-            state,
-            regionField,
-            province
-          );
-      }
+        allText.includes("tashkent city") ||
+        (looksLikeTashkent(state) && looksLikeTashkent(city)) ||
+        (looksLikeTashkent(regionField) && looksLikeTashkent(city));
 
-      // 2) District uchun faqat haqiqiy tuman maydonlari
-      district =
-        firstNotEmpty(
+      let region = "";
+      let district = "";
+
+      if (isTashkentCity) {
+        region = "Toshkent shahri";
+
+        district = firstNotEmpty(
           cityDistrict,
           districtField,
           suburb,
-          borough
+          borough,
+          county,
+          neighbourhood
         );
 
-      // 3) Agar district yo'q bo'lsa keyin city/town/village
-      if (!district) {
-        district =
-          firstNotEmpty(
+        if (!district || looksLikeTashkent(district)) {
+          district = firstNotEmpty(
+            county,
+            cityDistrict,
+            districtField,
+            suburb,
+            borough,
+            neighbourhood
+          );
+        }
+
+        if (!district || looksLikeTashkent(district)) {
+          district = "Toshkent shahri";
+        }
+      } else {
+        region = firstNotEmpty(
+          state,
+          regionField,
+          province
+        );
+
+        district = firstNotEmpty(
+          cityDistrict,
+          districtField,
+          suburb,
+          borough,
+          county
+        );
+
+        if (!district) {
+          district = firstNotEmpty(
             city,
             town,
             village,
             municipality
           );
-      }
+        }
 
-      // 4) Region bo'sh bo'lsa fallback
-      if (!region) {
-        region =
-          firstNotEmpty(
+        if (!region) {
+          region = firstNotEmpty(
             state,
             regionField,
             province,
@@ -316,39 +357,24 @@
             village,
             municipality
           );
-      }
+        }
 
-      // 5) Agar region hali ham yo'q bo'lsa districtdan olamiz
-      if (!region) {
-        region = district;
-      }
+        if (!district) {
+          district = region;
+        }
 
-      // 6) Agar district region bilan bir xil bo'lsa, alternativ qidiramiz
-      if (
-        district &&
-        region &&
-        district.toLowerCase() === region.toLowerCase()
-      ) {
-        const altDistrict =
-          firstNotEmpty(
+        if (isSamePlace(region, district)) {
+          const altDistrict = firstNotEmpty(
             cityDistrict,
             districtField,
             suburb,
             borough,
             county
           );
-
-        if (
-          altDistrict &&
-          altDistrict.toLowerCase() !== region.toLowerCase()
-        ) {
-          district = altDistrict;
+          if (altDistrict && !isSamePlace(altDistrict, region)) {
+            district = altDistrict;
+          }
         }
-      }
-
-      // 7) Hali ham district topilmasa
-      if (!district) {
-        district = region;
       }
 
       return {
@@ -370,8 +396,8 @@
         addr.state,
         addr.country
       ]
-        .map(cleanText)
-        .filter(Boolean);
+      .map(cleanText)
+      .filter(Boolean);
 
       const uniqueParts = [...new Set(parts)];
       return uniqueParts.length ? uniqueParts.join(", ") : cleanText(fallbackDisplayName || "");
@@ -395,6 +421,30 @@
 
       document.getElementById("sendBtn").disabled =
         !(selectedData.lat && selectedData.lon && selectedData.region && selectedData.district) || loading;
+    }
+
+    function showDebug(addr, parsed) {
+      const box = document.getElementById("debugBox");
+      box.style.display = "block";
+      box.textContent =
+`RAW:
+state = ${addr.state || ""}
+region = ${addr.region || ""}
+province = ${addr.province || ""}
+county = ${addr.county || ""}
+city = ${addr.city || ""}
+town = ${addr.town || ""}
+village = ${addr.village || ""}
+municipality = ${addr.municipality || ""}
+city_district = ${addr.city_district || ""}
+district = ${addr.district || ""}
+suburb = ${addr.suburb || ""}
+borough = ${addr.borough || ""}
+neighbourhood = ${addr.neighbourhood || ""}
+
+PARSED:
+region = ${parsed.region}
+district = ${parsed.district}`;
     }
 
     function setMarker(lat, lon) {
@@ -453,11 +503,9 @@
           district: parsed.district
         };
 
-        console.log("PAGE TYPE:", pageType);
         console.log("RAW ADDRESS:", addr);
         console.log("PARSED:", parsed);
-        console.log("SELECTED DATA:", selectedData);
-
+        showDebug(addr, parsed);
         updateInfo(false);
       } catch (error) {
         console.error(error);
