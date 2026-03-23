@@ -17,10 +17,12 @@
       font-family: Arial, sans-serif;
     }
 
-    body {
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: #f5f7fb;
       color: #111;
-      overflow: hidden;
     }
 
     #map-wrap {
@@ -35,13 +37,12 @@
       height: 100%;
     }
 
-    /* Fixed center marker */
     .center-marker {
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 34px;
-      height: 34px;
+      width: 38px;
+      height: 38px;
       transform: translate(-50%, -100%);
       z-index: 1000;
       pointer-events: none;
@@ -51,8 +52,8 @@
       position: absolute;
       left: 50%;
       top: 0;
-      width: 26px;
-      height: 26px;
+      width: 28px;
+      height: 28px;
       background: linear-gradient(180deg, #2d8cff 0%, #0066ff 100%);
       border: 3px solid #fff;
       border-radius: 50% 50% 50% 0;
@@ -63,8 +64,8 @@
     .marker-pin::after {
       content: "";
       position: absolute;
-      width: 8px;
-      height: 8px;
+      width: 9px;
+      height: 9px;
       background: #fff;
       border-radius: 50%;
       top: 50%;
@@ -75,21 +76,17 @@
     .marker-shadow {
       position: absolute;
       left: 50%;
-      bottom: 0;
+      bottom: 1px;
       width: 18px;
       height: 7px;
-      background: rgba(0,0,0,0.18);
+      background: rgba(0, 0, 0, 0.2);
       border-radius: 50%;
       transform: translateX(-50%);
       filter: blur(1px);
     }
 
     .center-marker.moving {
-      transform: translate(-50%, -106%);
-    }
-
-    .center-marker.moving .marker-pin {
-      transition: transform 0.15s ease;
+      transform: translate(-50%, -108%);
     }
 
     .center-marker.idle .marker-pin {
@@ -98,14 +95,13 @@
 
     @keyframes dropBack {
       0% {
-        transform: translateX(-50%) rotate(-45deg) scale(1.04);
+        transform: translateX(-50%) rotate(-45deg) scale(1.05);
       }
       100% {
         transform: translateX(-50%) rotate(-45deg) scale(1);
       }
     }
 
-    /* Search */
     .search-layer {
       position: absolute;
       top: 12px;
@@ -168,6 +164,7 @@
       max-height: 220px;
       overflow-y: auto;
       border-top: 1px solid #f0f0f0;
+      background: #fff;
     }
 
     .suggestion-item {
@@ -187,24 +184,9 @@
       background: #f8faff;
     }
 
-    .loc-btn {
-      position: absolute;
-      right: 12px;
-      bottom: 16px;
-      z-index: 1200;
-      width: 44px;
-      height: 44px;
-      border: none;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
-      font-size: 18px;
-      cursor: pointer;
-    }
-
     .panel {
       padding: 12px;
-      background: white;
+      background: #fff;
       border-top-left-radius: 20px;
       border-top-right-radius: 20px;
       margin-top: -10px;
@@ -220,16 +202,42 @@
       margin-bottom: 6px;
     }
 
+    .panel-row {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
     .address-box {
-      min-height: 54px;
+      flex: 1;
+      min-height: 58px;
       background: #f7f7f7;
       border-radius: 12px;
       padding: 10px 12px;
       font-size: 12px;
-      line-height: 1.4;
-      margin-bottom: 12px;
+      line-height: 1.6;
       color: #222;
       word-break: break-word;
+      margin-bottom: 0;
+    }
+
+    .mini-loc-btn {
+      width: 52px;
+      min-width: 52px;
+      border: none;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-loc-btn:active {
+      transform: scale(0.97);
     }
 
     .btn {
@@ -262,6 +270,13 @@
     .loading-text {
       color: #666;
     }
+
+    .leaflet-control-zoom a {
+      width: 34px !important;
+      height: 34px !important;
+      line-height: 34px !important;
+      font-size: 18px !important;
+    }
   </style>
 </head>
 <body>
@@ -291,13 +306,18 @@
       <div class="marker-pin"></div>
       <div class="marker-shadow"></div>
     </div>
-
-    <button id="myLocationBtn" class="loc-btn">📍</button>
   </div>
 
   <div class="panel">
-    <div class="label">Tanlangan manzil</div>
-    <div id="address" class="address-box">Hali joy tanlanmagan</div>
+    <div class="label">Tanlangan joy</div>
+
+    <div class="panel-row">
+      <div id="address" class="address-box">Hali joy tanlanmagan</div>
+
+      <button id="myLocationBtn" class="mini-loc-btn" type="button" title="Mening joylashuvim">
+        📍
+      </button>
+    </div>
 
     <button id="sendBtn" class="btn btn-primary" disabled>
       ✅ Tasdiqlash va yuborish
@@ -323,13 +343,14 @@
     const searchInput = document.getElementById("searchInput");
     const suggestionsBox = document.getElementById("suggestions");
 
+    const defaultLat = 41.3111;
+    const defaultLon = 69.2797;
+
     let selected = null;
     let debounceTimer = null;
     let moveTimer = null;
+    let lastRequestId = 0;
     let isSearchOpen = false;
-
-    const defaultLat = 41.3111;
-    const defaultLon = 69.2797;
 
     const map = L.map("map", {
       zoomControl: true,
@@ -340,46 +361,362 @@
       maxZoom: 19
     }).addTo(map);
 
-    function getRegion(addr) {
-      return (
-        addr.state ||
-        addr.province ||
-        addr.region ||
-        addr.city ||
-        addr.county ||
-        "Toshkent"
-      );
+    const REGION_ALIASES = {
+      "toshkent": "Toshkent",
+      "tashkent": "Toshkent",
+      "toshkent city": "Toshkent",
+      "andijon": "Andijon",
+      "andijan": "Andijon",
+      "fargona": "Farg'ona",
+      "fergana": "Farg'ona",
+      "namangan": "Namangan",
+      "jizzax": "Jizzax",
+      "jizzakh": "Jizzax",
+      "samarqand": "Samarqand",
+      "samarkand": "Samarqand",
+      "sirdaryo": "Sirdaryo",
+      "guliston": "Sirdaryo",
+      "qashqadaryo": "Qashqadaryo",
+      "kashkadarya": "Qashqadaryo",
+      "qarshi": "Qashqadaryo",
+      "surxondaryo": "Surxondaryo",
+      "surkhandarya": "Surxondaryo",
+      "termiz": "Surxondaryo",
+      "buxoro": "Buxoro",
+      "bukhara": "Buxoro",
+      "navoiy": "Navoiy",
+      "navoi": "Navoiy",
+      "xorazm": "Xorazm",
+      "khorezm": "Xorazm",
+      "urganch": "Xorazm",
+      "qoraqalpogiston": "Qoraqalpog'iston",
+      "karakalpakstan": "Qoraqalpog'iston",
+      "nukus": "Qoraqalpog'iston"
+    };
+
+    const CITY_TO_REGION = {
+      "andijon": "Andijon",
+      "andijan": "Andijon",
+      "fargona": "Farg'ona",
+      "fergana": "Farg'ona",
+      "namangan": "Namangan",
+      "jizzax": "Jizzax",
+      "jizzakh": "Jizzax",
+      "samarqand": "Samarqand",
+      "samarkand": "Samarqand",
+      "guliston": "Sirdaryo",
+      "qarshi": "Qashqadaryo",
+      "karshi": "Qashqadaryo",
+      "termiz": "Surxondaryo",
+      "buxoro": "Buxoro",
+      "bukhara": "Buxoro",
+      "navoiy": "Navoiy",
+      "navoi": "Navoiy",
+      "urganch": "Xorazm",
+      "nukus": "Qoraqalpog'iston",
+      "toshkent": "Toshkent",
+      "tashkent": "Toshkent"
+    };
+
+    const TASHKENT_DISTRICTS = [
+      "Bektemir",
+      "Chilonzor",
+      "Mirobod",
+      "Mirzo Ulug'bek",
+      "Olmazor",
+      "Sergeli",
+      "Shayxontohur",
+      "Uchtepa",
+      "Yakkasaroy",
+      "Yashnobod",
+      "Yunusobod",
+      "Yangihayot"
+    ];
+
+    function cleanName(value) {
+      if (!value) return "";
+      return String(value).trim().replace(/\s+/g, " ");
     }
 
-    function getDistrict(addr) {
-      return (
-        addr.city_district ||
-        addr.district ||
-        addr.town ||
-        addr.city ||
-        addr.county ||
-        ""
-      );
+    function latinizeUzbek(value) {
+      return cleanName(value)
+        .toLowerCase()
+        .replace(/o‘/g, "o'")
+        .replace(/g‘/g, "g'")
+        .replace(/ʼ/g, "'")
+        .replace(/`/g, "'")
+        .replace(/[ʻ’]/g, "'")
+        .replace(/yoʻli/g, "yoli")
+        .replace(/koʻcha/g, "kocha");
+    }
+
+    function stripAdminWords(value) {
+      let name = cleanName(value);
+      if (!name) return "";
+
+      name = name
+        .replace(/\bDistrict\b/gi, "")
+        .replace(/\bRegion\b/gi, "")
+        .replace(/\bProvince\b/gi, "")
+        .replace(/\bCounty\b/gi, "")
+        .replace(/\bMunicipality\b/gi, "")
+        .replace(/\bTumani\b/gi, "")
+        .replace(/\bTuman\b/gi, "")
+        .replace(/\bViloyati\b/gi, "")
+        .replace(/\bViloyat\b/gi, "")
+        .replace(/\bShahri\b/gi, "")
+        .replace(/\bShahar\b/gi, "")
+        .replace(/\bCity\b/gi, "")
+        .trim();
+
+      return name.replace(/\s+/g, " ").trim();
+    }
+
+    function normalizeKnownRegion(value) {
+      const stripped = stripAdminWords(value);
+      const key = latinizeUzbek(stripped);
+      return REGION_ALIASES[key] || stripped;
+    }
+
+    function normalizeKnownDistrict(value) {
+      let v = stripAdminWords(value);
+      if (!v) return "";
+
+      const key = latinizeUzbek(v);
+
+      const tashkentMap = {
+        "bektemir": "Bektemir",
+        "chilonzor": "Chilonzor",
+        "chilanzar": "Chilonzor",
+        "mirobod": "Mirobod",
+        "mirabad": "Mirobod",
+        "mirzo ulug'bek": "Mirzo Ulug'bek",
+        "mirzo ulugbek": "Mirzo Ulug'bek",
+        "olmazor": "Olmazor",
+        "almazar": "Olmazor",
+        "sergeli": "Sergeli",
+        "shayxontohur": "Shayxontohur",
+        "shaykhantahur": "Shayxontohur",
+        "uchtepa": "Uchtepa",
+        "yakkasaroy": "Yakkasaroy",
+        "yakkasaray": "Yakkasaroy",
+        "yashnobod": "Yashnobod",
+        "yunusobod": "Yunusobod",
+        "yunusabad": "Yunusobod",
+        "yangihayot": "Yangihayot"
+      };
+
+      return tashkentMap[key] || v;
+    }
+
+    function isBadDistrictName(value) {
+      const v = latinizeUzbek(value);
+      if (!v) return true;
+
+      const badWords = [
+        "mahalla", "mfy", "guzar", "guzari", "daha", "massiv", "mavze",
+        "ko'cha", "kocha", "street", "st.", "passage", "passageway",
+        "yoli", "road", "avenue", "lane", "residential", "block",
+        "qishloq", "ovul", "hamlet", "village", "posyolka", "settlement",
+        "kvartal", "microdistrict", "mikrorayon", "neighbourhood",
+        "neighborhood", "suburb", "quarter"
+      ];
+
+      return badWords.some(word => v.includes(word));
+    }
+
+    function uniqueCleanValues(list) {
+      const seen = new Set();
+      const result = [];
+
+      for (const item of list) {
+        const cleaned = stripAdminWords(item);
+        if (!cleaned) continue;
+
+        const key = latinizeUzbek(cleaned);
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        result.push(cleaned);
+      }
+
+      return result;
+    }
+
+    function getRegion(addr) {
+      const candidates = uniqueCleanValues([
+        addr.state,
+        addr.region,
+        addr.province
+      ]);
+
+      let region = normalizeKnownRegion(candidates[0] || "");
+
+      if (!region) {
+        const cityLike = stripAdminWords(addr.city || addr.town || "");
+        const cityKey = latinizeUzbek(cityLike);
+        region = CITY_TO_REGION[cityKey] || "";
+      }
+
+      return region || "Toshkent";
+    }
+
+    function getDistrict(addr, region) {
+      const regionKey = latinizeUzbek(region);
+
+      const rawCandidates = [
+        addr.city_district,
+        addr.district,
+        addr.county,
+        addr.municipality,
+        addr.city,
+        addr.town
+      ];
+
+      const candidates = uniqueCleanValues(rawCandidates);
+
+      for (const item of candidates) {
+        const normalized = normalizeKnownDistrict(item);
+        const itemKey = latinizeUzbek(normalized);
+
+        if (!itemKey) continue;
+        if (isBadDistrictName(normalized)) continue;
+        if (itemKey === regionKey) continue;
+
+        return normalized;
+      }
+
+      return "";
+    }
+
+    function inferDistrictFromDisplayName(displayName, region) {
+      const text = cleanName(displayName);
+      if (!text) return "";
+
+      const parts = text.split(",").map(s => stripAdminWords(s)).filter(Boolean);
+      const regionKey = latinizeUzbek(region);
+
+      for (const part of parts) {
+        const normalized = normalizeKnownDistrict(part);
+        const key = latinizeUzbek(normalized);
+
+        if (!key) continue;
+        if (isBadDistrictName(normalized)) continue;
+        if (key === regionKey) continue;
+
+        if (latinizeUzbek(region) === "toshkent") {
+          const matched = TASHKENT_DISTRICTS.find(d => latinizeUzbek(d) === key);
+          if (matched) return matched;
+        }
+
+        return normalized;
+      }
+
+      return "";
+    }
+
+    function normalizeUzbekAdmin(addr, displayName) {
+      let region = getRegion(addr);
+      let district = getDistrict(addr, region);
+
+      const city = normalizeKnownDistrict(addr.city);
+      const town = normalizeKnownDistrict(addr.town);
+      const county = normalizeKnownDistrict(addr.county);
+      const districtField = normalizeKnownDistrict(addr.district);
+      const cityDistrict = normalizeKnownDistrict(addr.city_district);
+
+      if (!district || latinizeUzbek(district) === latinizeUzbek(region)) {
+        district =
+          cityDistrict ||
+          districtField ||
+          county ||
+          city ||
+          town ||
+          "";
+      }
+
+      if (!district || isBadDistrictName(district)) {
+        district = inferDistrictFromDisplayName(displayName, region);
+      }
+
+      if (!district || isBadDistrictName(district)) {
+        district =
+          cityDistrict ||
+          districtField ||
+          county ||
+          city ||
+          town ||
+          region;
+      }
+
+      region = normalizeKnownRegion(region);
+      district = normalizeKnownDistrict(district);
+
+      if (!district) district = region;
+
+      const regionKey = latinizeUzbek(region);
+      const districtKey = latinizeUzbek(district);
+
+      if (regionKey === "toshkent") {
+        const matched = TASHKENT_DISTRICTS.find(d => latinizeUzbek(d) === districtKey);
+        if (matched) {
+          district = matched;
+        } else {
+          district =
+            normalizeKnownDistrict(cityDistrict) ||
+            normalizeKnownDistrict(districtField) ||
+            normalizeKnownDistrict(county) ||
+            "Toshkent";
+        }
+      }
+
+      if (districtKey === regionKey && regionKey !== "toshkent") {
+        district =
+          normalizeKnownDistrict(cityDistrict) ||
+          normalizeKnownDistrict(districtField) ||
+          normalizeKnownDistrict(county) ||
+          normalizeKnownDistrict(city) ||
+          normalizeKnownDistrict(town) ||
+          region;
+      }
+
+      if (!district || isBadDistrictName(district)) {
+        district = region;
+      }
+
+      return {
+        region,
+        district
+      };
     }
 
     async function reverseGeocode(lat, lon) {
       try {
+        const requestId = ++lastRequestId;
+
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=uz`
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=${lat}&lon=${lon}&accept-language=uz`
         );
+
         const data = await res.json();
+
+        if (requestId !== lastRequestId) {
+          return null;
+        }
+
         const addr = data.address || {};
+        const normalized = normalizeUzbekAdmin(addr, data.display_name || "");
 
         return {
           address: data.display_name || `${lat}, ${lon}`,
-          region: getRegion(addr),
-          district: getDistrict(addr)
+          region: normalized.region,
+          district: normalized.district
         };
       } catch (e) {
         return {
           address: `${lat}, ${lon}`,
           region: "Toshkent",
-          district: ""
+          district: "Toshkent"
         };
       }
     }
@@ -420,6 +757,7 @@
       sendBtn.disabled = true;
 
       const geo = await reverseGeocode(lat, lon);
+      if (!geo) return;
 
       selected = {
         lat,
@@ -431,8 +769,8 @@
       };
 
       addressBox.innerHTML = `
-        <b>Adres:</b> ${geo.address}<br>
-        <b>Hudud:</b> ${geo.region}${geo.district ? `, ${geo.district}` : ""}
+        <b>Hudud:</b> ${geo.region}<br>
+        <b>Tuman/Shahar:</b> ${geo.district}
       `;
 
       sendBtn.disabled = false;
@@ -459,7 +797,10 @@
     }
 
     function goToCurrentLocation() {
-      if (!navigator.geolocation) return;
+      if (!navigator.geolocation) {
+        map.setView([defaultLat, defaultLon], 12);
+        return;
+      }
 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -545,6 +886,7 @@
     });
 
     goToCurrentLocation();
+
     setTimeout(() => {
       updateCenterAddress();
     }, 700);
