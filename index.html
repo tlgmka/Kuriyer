@@ -2,10 +2,10 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Xaritadan tanlash</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -22,33 +22,59 @@
       color: #111;
     }
 
-    .topbar {
-      padding: 14px 16px;
+    .search-wrap {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 1200;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 14px;
+      outline: none;
+      font-size: 15px;
       background: white;
-      border-bottom: 1px solid #eaeaea;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
     }
 
-    .title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 6px;
+    .suggestions {
+      margin-top: 8px;
+      background: white;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+      display: none;
+      max-height: 220px;
+      overflow-y: auto;
     }
 
-    .subtitle {
-      font-size: 13px;
-      color: #666;
+    .suggestion-item {
+      padding: 12px 14px;
+      font-size: 14px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      line-height: 1.35;
+    }
+
+    .suggestion-item:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion-item:hover {
+      background: #f7f9fc;
     }
 
     #map {
       width: 100%;
-      height: 55vh;
+      height: 62vh;
     }
 
     .panel {
-      padding: 14px;
+      padding: 12px;
       background: white;
       border-top-left-radius: 18px;
       border-top-right-radius: 18px;
@@ -59,27 +85,29 @@
     }
 
     .label {
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .address-box {
-      min-height: 68px;
+      min-height: 54px;
       background: #f7f7f7;
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 14px;
-      line-height: 1.4;
-      margin-bottom: 12px;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 10px;
+      color: #222;
+      word-break: break-word;
     }
 
     .btn {
       width: 100%;
       border: none;
       border-radius: 14px;
-      padding: 14px;
-      font-size: 16px;
+      padding: 13px;
+      font-size: 15px;
       font-weight: 700;
       cursor: pointer;
     }
@@ -95,34 +123,58 @@
     }
 
     .hint {
-      margin-top: 10px;
-      font-size: 12px;
+      margin-top: 8px;
+      font-size: 11px;
       color: #777;
       text-align: center;
     }
 
-    /* Leaflet zoom tugmasi chiroyliroq */
-    .leaflet-control-zoom a {
-      width: 34px !important;
-      height: 34px !important;
-      line-height: 34px !important;
-      font-size: 18px !important;
+    .emoji-marker {
+      font-size: 28px;
+      text-align: center;
+    }
+
+    .loc-btn {
+      position: absolute;
+      right: 12px;
+      bottom: 140px;
+      z-index: 1200;
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+      font-size: 18px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="title">📍 Lokatsiyani tanlang</div>
-    <div class="subtitle">Xaritaga bosib aniq joyni belgilang</div>
+
+  <div class="search-wrap">
+    <input
+      id="searchInput"
+      class="search-box"
+      type="text"
+      placeholder="Manzil qidiring..."
+      autocomplete="off"
+    />
+    <div id="suggestions" class="suggestions"></div>
   </div>
 
   <div id="map"></div>
+  <button id="myLocationBtn" class="loc-btn">📍</button>
 
   <div class="panel">
     <div class="label">Tanlangan manzil</div>
     <div id="address" class="address-box">Hali joy tanlanmagan</div>
-    <button id="sendBtn" class="btn btn-primary" disabled>✅ Tasdiqlash va yuborish</button>
-    <div class="hint">Avval xaritadan nuqta tanlang</div>
+
+    <button id="sendBtn" class="btn btn-primary" disabled>
+      ✅ Tasdiqlash va yuborish
+    </button>
+
+    <div class="hint">Xaritadan nuqta tanlang yoki qidiruvdan foydalaning</div>
   </div>
 
   <script>
@@ -132,8 +184,15 @@
     const params = new URLSearchParams(window.location.search);
     const type = params.get("type") || "from";
 
+    const addressBox = document.getElementById("address");
+    const sendBtn = document.getElementById("sendBtn");
+    const searchInput = document.getElementById("searchInput");
+    const suggestionsBox = document.getElementById("suggestions");
+    const myLocationBtn = document.getElementById("myLocationBtn");
+
     let selected = null;
     let marker = null;
+    let debounceTimer = null;
 
     const map = L.map("map", {
       zoomControl: true,
@@ -144,8 +203,34 @@
       maxZoom: 19
     }).addTo(map);
 
-    const addressBox = document.getElementById("address");
-    const sendBtn = document.getElementById("sendBtn");
+    const emojiIcon = L.divIcon({
+      className: "emoji-marker",
+      html: "📍",
+      iconSize: [30, 30],
+      iconAnchor: [15, 30]
+    });
+
+    function getRegion(addr) {
+      return (
+        addr.state ||
+        addr.province ||
+        addr.region ||
+        addr.city ||
+        addr.county ||
+        "Toshkent"
+      );
+    }
+
+    function getDistrict(addr) {
+      return (
+        addr.city_district ||
+        addr.district ||
+        addr.town ||
+        addr.city ||
+        addr.county ||
+        ""
+      );
+    }
 
     async function reverseGeocode(lat, lon) {
       try {
@@ -153,63 +238,157 @@
           `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=uz`
         );
         const data = await res.json();
-
         const addr = data.address || {};
-        const region =
-          addr.state ||
-          addr.region ||
-          addr.county ||
-          addr.city ||
-          "Toshkent";
 
-        const address =
-          data.display_name ||
-          `${lat}, ${lon}`;
-
-        return { address, region };
+        return {
+          address: data.display_name || `${lat}, ${lon}`,
+          region: getRegion(addr),
+          district: getDistrict(addr)
+        };
       } catch (e) {
         return {
           address: `${lat}, ${lon}`,
-          region: "Toshkent"
+          region: "Toshkent",
+          district: ""
         };
       }
     }
 
-    map.on("click", async function (e) {
-      const { lat, lng } = e.latlng;
+    async function searchPlaces(query) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&accept-language=uz&countrycodes=uz&limit=5`
+        );
+        return await res.json();
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function renderSuggestions(items) {
+      if (!items.length) {
+        suggestionsBox.style.display = "none";
+        suggestionsBox.innerHTML = "";
+        return;
+      }
+
+      suggestionsBox.innerHTML = items.map(item => `
+        <div 
+          class="suggestion-item"
+          data-lat="${item.lat}"
+          data-lon="${item.lon}"
+          data-name="${(item.display_name || "").replace(/"/g, '&quot;')}"
+        >
+          ${item.display_name}
+        </div>
+      `).join("");
+
+      suggestionsBox.style.display = "block";
+    }
+
+    async function setPoint(lat, lon, zoom = 17) {
+      lat = parseFloat(lat);
+      lon = parseFloat(lon);
 
       if (marker) {
         map.removeLayer(marker);
       }
 
-      marker = L.marker([lat, lng]).addTo(map);
+      marker = L.marker([lat, lon], { icon: emojiIcon }).addTo(map);
+      map.setView([lat, lon], zoom);
 
       addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
       sendBtn.disabled = true;
 
-      const geo = await reverseGeocode(lat, lng);
+      const geo = await reverseGeocode(lat, lon);
 
       selected = {
-        lat: lat,
-        lon: lng,
+        lat,
+        lon,
         address: geo.address,
         region: geo.region,
-        type: type
+        district: geo.district,
+        type
       };
 
       addressBox.innerHTML = `
-        <b>Adres:</b><br>${geo.address}<br><br>
-        <b>Hudud:</b> ${geo.region}
+        <b>Adres:</b> ${geo.address}<br>
+        <b>Hudud:</b> ${geo.region}${geo.district ? `, ${geo.district}` : ""}
       `;
 
       sendBtn.disabled = false;
+    }
+
+    function goToCurrentLocation() {
+      if (!navigator.geolocation) return;
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          await setPoint(lat, lon, 16);
+        },
+        () => {
+          map.setView([41.3111, 69.2797], 12);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    map.on("click", async function(e) {
+      const { lat, lng } = e.latlng;
+      await setPoint(lat, lng, map.getZoom() < 16 ? 16 : map.getZoom());
     });
 
-    sendBtn.addEventListener("click", function () {
+    searchInput.addEventListener("input", function() {
+      const value = this.value.trim();
+
+      clearTimeout(debounceTimer);
+
+      if (value.length < 3) {
+        renderSuggestions([]);
+        return;
+      }
+
+      debounceTimer = setTimeout(async () => {
+        const results = await searchPlaces(value);
+        renderSuggestions(results);
+      }, 350);
+    });
+
+    suggestionsBox.addEventListener("click", async function(e) {
+      const item = e.target.closest(".suggestion-item");
+      if (!item) return;
+
+      const lat = item.dataset.lat;
+      const lon = item.dataset.lon;
+      const name = item.dataset.name;
+
+      searchInput.value = name;
+      suggestionsBox.style.display = "none";
+
+      await setPoint(lat, lon, 17);
+    });
+
+    document.addEventListener("click", function(e) {
+      if (!e.target.closest(".search-wrap")) {
+        suggestionsBox.style.display = "none";
+      }
+    });
+
+    myLocationBtn.addEventListener("click", goToCurrentLocation);
+
+    sendBtn.addEventListener("click", function() {
       if (!selected) return;
       tg.sendData(JSON.stringify(selected));
       tg.close();
     });
+
+    goToCurrentLocation();
   </script>
 </body>
 </html>
