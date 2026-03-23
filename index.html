@@ -20,44 +20,163 @@
     body {
       background: #f5f7fb;
       color: #111;
+      overflow: hidden;
     }
 
-    .search-wrap {
+    #map-wrap {
+      position: relative;
+      width: 100%;
+      height: 64vh;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Fixed center marker */
+    .center-marker {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 34px;
+      height: 34px;
+      transform: translate(-50%, -100%);
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .marker-pin {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 26px;
+      height: 26px;
+      background: linear-gradient(180deg, #2d8cff 0%, #0066ff 100%);
+      border: 3px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      transform: translateX(-50%) rotate(-45deg);
+      box-shadow: 0 8px 18px rgba(0, 102, 255, 0.35);
+    }
+
+    .marker-pin::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
+
+    .marker-shadow {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      width: 18px;
+      height: 7px;
+      background: rgba(0,0,0,0.18);
+      border-radius: 50%;
+      transform: translateX(-50%);
+      filter: blur(1px);
+    }
+
+    .center-marker.moving {
+      transform: translate(-50%, -106%);
+    }
+
+    .center-marker.moving .marker-pin {
+      transition: transform 0.15s ease;
+    }
+
+    .center-marker.idle .marker-pin {
+      animation: dropBack 0.22s ease;
+    }
+
+    @keyframes dropBack {
+      0% {
+        transform: translateX(-50%) rotate(-45deg) scale(1.04);
+      }
+      100% {
+        transform: translateX(-50%) rotate(-45deg) scale(1);
+      }
+    }
+
+    /* Search */
+    .search-layer {
       position: absolute;
       top: 12px;
       left: 12px;
       right: 12px;
       z-index: 1200;
+      display: flex;
+      justify-content: flex-end;
+      pointer-events: none;
     }
 
-    .search-box {
-      width: 100%;
-      padding: 12px 14px;
+    .search-shell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .search-toggle {
+      width: 44px;
+      height: 44px;
       border: none;
-      border-radius: 14px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .search-panel {
+      width: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: width 0.28s ease, opacity 0.2s ease;
+    }
+
+    .search-panel.open {
+      width: min(78vw, 320px);
+      opacity: 1;
+    }
+
+    .search-box-wrap {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+      overflow: hidden;
+    }
+
+    .search-input {
+      width: 100%;
+      border: none;
       outline: none;
-      font-size: 15px;
-      background: white;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+      padding: 12px 14px;
+      font-size: 14px;
     }
 
     .suggestions {
-      margin-top: 8px;
-      background: white;
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
       display: none;
       max-height: 220px;
       overflow-y: auto;
+      border-top: 1px solid #f0f0f0;
     }
 
     .suggestion-item {
-      padding: 12px 14px;
-      font-size: 14px;
-      border-bottom: 1px solid #f0f0f0;
-      cursor: pointer;
+      padding: 11px 14px;
+      font-size: 13px;
       line-height: 1.35;
+      cursor: pointer;
+      border-bottom: 1px solid #f5f5f5;
+      background: #fff;
     }
 
     .suggestion-item:last-child {
@@ -65,39 +184,50 @@
     }
 
     .suggestion-item:hover {
-      background: #f7f9fc;
+      background: #f8faff;
     }
 
-    #map {
-      width: 100%;
-      height: 62vh;
+    .loc-btn {
+      position: absolute;
+      right: 12px;
+      bottom: 16px;
+      z-index: 1200;
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+      font-size: 18px;
+      cursor: pointer;
     }
 
     .panel {
       padding: 12px;
       background: white;
-      border-top-left-radius: 18px;
-      border-top-right-radius: 18px;
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
       margin-top: -10px;
       position: relative;
       z-index: 500;
       box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+      min-height: 36vh;
     }
 
     .label {
       font-size: 12px;
       color: #666;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
     }
 
     .address-box {
       min-height: 54px;
       background: #f7f7f7;
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 10px 12px;
       font-size: 12px;
-      line-height: 1.35;
-      margin-bottom: 10px;
+      line-height: 1.4;
+      margin-bottom: 12px;
       color: #222;
       word-break: break-word;
     }
@@ -106,7 +236,7 @@
       width: 100%;
       border: none;
       border-radius: 14px;
-      padding: 13px;
+      padding: 14px;
       font-size: 15px;
       font-weight: 700;
       cursor: pointer;
@@ -129,42 +259,41 @@
       text-align: center;
     }
 
-    .emoji-marker {
-      font-size: 28px;
-      text-align: center;
-    }
-
-    .loc-btn {
-      position: absolute;
-      right: 12px;
-      bottom: 140px;
-      z-index: 1200;
-      width: 42px;
-      height: 42px;
-      border: none;
-      border-radius: 50%;
-      background: white;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
-      font-size: 18px;
-      cursor: pointer;
+    .loading-text {
+      color: #666;
     }
   </style>
 </head>
 <body>
 
-  <div class="search-wrap">
-    <input
-      id="searchInput"
-      class="search-box"
-      type="text"
-      placeholder="Manzil qidiring..."
-      autocomplete="off"
-    />
-    <div id="suggestions" class="suggestions"></div>
-  </div>
+  <div id="map-wrap">
+    <div class="search-layer">
+      <div class="search-shell">
+        <div id="searchPanel" class="search-panel">
+          <div class="search-box-wrap">
+            <input
+              id="searchInput"
+              class="search-input"
+              type="text"
+              placeholder="Manzil qidiring..."
+              autocomplete="off"
+            />
+            <div id="suggestions" class="suggestions"></div>
+          </div>
+        </div>
+        <button id="searchToggle" class="search-toggle">🔍</button>
+      </div>
+    </div>
 
-  <div id="map"></div>
-  <button id="myLocationBtn" class="loc-btn">📍</button>
+    <div id="map"></div>
+
+    <div id="centerMarker" class="center-marker idle">
+      <div class="marker-pin"></div>
+      <div class="marker-shadow"></div>
+    </div>
+
+    <button id="myLocationBtn" class="loc-btn">📍</button>
+  </div>
 
   <div class="panel">
     <div class="label">Tanlangan manzil</div>
@@ -174,7 +303,7 @@
       ✅ Tasdiqlash va yuborish
     </button>
 
-    <div class="hint">Xaritadan nuqta tanlang yoki qidiruvdan foydalaning</div>
+    <div class="hint">Xaritani surib joy tanlang yoki qidiruvdan foydalaning</div>
   </div>
 
   <script>
@@ -186,29 +315,30 @@
 
     const addressBox = document.getElementById("address");
     const sendBtn = document.getElementById("sendBtn");
+    const myLocationBtn = document.getElementById("myLocationBtn");
+    const centerMarker = document.getElementById("centerMarker");
+
+    const searchToggle = document.getElementById("searchToggle");
+    const searchPanel = document.getElementById("searchPanel");
     const searchInput = document.getElementById("searchInput");
     const suggestionsBox = document.getElementById("suggestions");
-    const myLocationBtn = document.getElementById("myLocationBtn");
 
     let selected = null;
-    let marker = null;
     let debounceTimer = null;
+    let moveTimer = null;
+    let isSearchOpen = false;
+
+    const defaultLat = 41.3111;
+    const defaultLon = 69.2797;
 
     const map = L.map("map", {
       zoomControl: true,
       attributionControl: false
-    }).setView([41.3111, 69.2797], 12);
+    }).setView([defaultLat, defaultLon], 12);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19
     }).addTo(map);
-
-    const emojiIcon = L.divIcon({
-      className: "emoji-marker",
-      html: "📍",
-      iconSize: [30, 30],
-      iconAnchor: [15, 30]
-    });
 
     function getRegion(addr) {
       return (
@@ -267,18 +397,13 @@
 
     function renderSuggestions(items) {
       if (!items.length) {
-        suggestionsBox.style.display = "none";
         suggestionsBox.innerHTML = "";
+        suggestionsBox.style.display = "none";
         return;
       }
 
       suggestionsBox.innerHTML = items.map(item => `
-        <div 
-          class="suggestion-item"
-          data-lat="${item.lat}"
-          data-lon="${item.lon}"
-          data-name="${(item.display_name || "").replace(/"/g, '&quot;')}"
-        >
+        <div class="suggestion-item" data-lat="${item.lat}" data-lon="${item.lon}">
           ${item.display_name}
         </div>
       `).join("");
@@ -286,18 +411,12 @@
       suggestionsBox.style.display = "block";
     }
 
-    async function setPoint(lat, lon, zoom = 17) {
-      lat = parseFloat(lat);
-      lon = parseFloat(lon);
+    async function updateCenterAddress() {
+      const center = map.getCenter();
+      const lat = center.lat;
+      const lon = center.lng;
 
-      if (marker) {
-        map.removeLayer(marker);
-      }
-
-      marker = L.marker([lat, lon], { icon: emojiIcon }).addTo(map);
-      map.setView([lat, lon], zoom);
-
-      addressBox.innerHTML = "⏳ Manzil aniqlanmoqda...";
+      addressBox.innerHTML = `<span class="loading-text">⏳ Manzil aniqlanmoqda...</span>`;
       sendBtn.disabled = true;
 
       const geo = await reverseGeocode(lat, lon);
@@ -319,17 +438,35 @@
       sendBtn.disabled = false;
     }
 
+    function startMovingState() {
+      centerMarker.classList.remove("idle");
+      centerMarker.classList.add("moving");
+      addressBox.innerHTML = `<span class="loading-text">⏳ Joy tanlanmoqda...</span>`;
+      sendBtn.disabled = true;
+    }
+
+    function endMovingState() {
+      centerMarker.classList.remove("moving");
+      centerMarker.classList.add("idle");
+    }
+
+    function scheduleAddressUpdate() {
+      clearTimeout(moveTimer);
+      moveTimer = setTimeout(async () => {
+        endMovingState();
+        await updateCenterAddress();
+      }, 350);
+    }
+
     function goToCurrentLocation() {
       if (!navigator.geolocation) return;
 
       navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          await setPoint(lat, lon, 16);
+        (pos) => {
+          map.setView([pos.coords.latitude, pos.coords.longitude], 16);
         },
         () => {
-          map.setView([41.3111, 69.2797], 12);
+          map.setView([defaultLat, defaultLon], 12);
         },
         {
           enableHighAccuracy: true,
@@ -339,14 +476,21 @@
       );
     }
 
-    map.on("click", async function(e) {
-      const { lat, lng } = e.latlng;
-      await setPoint(lat, lng, map.getZoom() < 16 ? 16 : map.getZoom());
+    searchToggle.addEventListener("click", () => {
+      isSearchOpen = !isSearchOpen;
+      searchPanel.classList.toggle("open", isSearchOpen);
+
+      if (isSearchOpen) {
+        setTimeout(() => searchInput.focus(), 180);
+      } else {
+        searchInput.value = "";
+        suggestionsBox.innerHTML = "";
+        suggestionsBox.style.display = "none";
+      }
     });
 
-    searchInput.addEventListener("input", function() {
+    searchInput.addEventListener("input", function () {
       const value = this.value.trim();
-
       clearTimeout(debounceTimer);
 
       if (value.length < 3) {
@@ -357,38 +501,53 @@
       debounceTimer = setTimeout(async () => {
         const results = await searchPlaces(value);
         renderSuggestions(results);
-      }, 350);
+      }, 300);
     });
 
-    suggestionsBox.addEventListener("click", async function(e) {
+    suggestionsBox.addEventListener("click", (e) => {
       const item = e.target.closest(".suggestion-item");
       if (!item) return;
 
-      const lat = item.dataset.lat;
-      const lon = item.dataset.lon;
-      const name = item.dataset.name;
+      const lat = parseFloat(item.dataset.lat);
+      const lon = parseFloat(item.dataset.lon);
 
-      searchInput.value = name;
       suggestionsBox.style.display = "none";
-
-      await setPoint(lat, lon, 17);
+      map.setView([lat, lon], 17);
     });
 
-    document.addEventListener("click", function(e) {
-      if (!e.target.closest(".search-wrap")) {
+    document.addEventListener("click", function (e) {
+      const insideSearch = e.target.closest(".search-shell");
+      if (!insideSearch) {
         suggestionsBox.style.display = "none";
       }
     });
 
     myLocationBtn.addEventListener("click", goToCurrentLocation);
 
-    sendBtn.addEventListener("click", function() {
+    map.on("movestart", () => {
+      startMovingState();
+      clearTimeout(moveTimer);
+    });
+
+    map.on("move", () => {
+      startMovingState();
+      clearTimeout(moveTimer);
+    });
+
+    map.on("moveend", () => {
+      scheduleAddressUpdate();
+    });
+
+    sendBtn.addEventListener("click", function () {
       if (!selected) return;
       tg.sendData(JSON.stringify(selected));
       tg.close();
     });
 
     goToCurrentLocation();
+    setTimeout(() => {
+      updateCenterAddress();
+    }, 700);
   </script>
 </body>
 </html>
